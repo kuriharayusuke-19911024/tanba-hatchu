@@ -137,6 +137,8 @@ var ST=["天ぷらとワイン大塩　丸の内店","天ぷらとワイン大�
 var RG={"天ぷらとワイン大塩　丸の内店":"ka","天ぷらとワイン大塩　日比谷店":"ka","天ぷらとワイン大塩　中野店":"ka","たこ焼きなにわ":"ka","天ぷらとワイン大塩　天満市場店":"os","天ぷらとワイン大塩　第三ビル店":"os"};
 var RL={ka:"関東（東京）",os:"関西（大阪）"};
 var RT={ka:{cool100:1300,cool140:1800,land100:920,land140:1000},os:{cool100:1150,cool140:1600,land100:850,land140:900}};
+// 米の固定送料（但馬米穀が出荷）
+var RICE_SHIP={ka:1500,os:1000};
 var BX=[{id:"cool140",n:"クール140",t:"チルド/冷凍 140サイズ"},{id:"cool100",n:"クール100",t:"チルド/冷凍 100サイズ"},{id:"land140",n:"陸便140",t:"常温 140サイズ"},{id:"land100",n:"陸便100",t:"常温 100サイズ"}];
 var CO={
   tanba:{n:"株式会社丹波農商",abbr:"（株）丹波農商",c:"#1e3a6e",zip:"〒669-4341",addr:"兵庫県丹波市市島町上竹田915-5",tel:"050-8890-8997",fax:"050-8890-8987",email:"tamba.nosho@gmail.com",person:"栗原優介",regno:"T5140001115497",bank:"JA丹波ひかみ 市島支店　普通　0091205",bankName:"代表取締役　大塩敦史",bankNote:"※振込手数料はお客様負担でお願いします。"},
@@ -181,7 +183,8 @@ var STOCK=[
   {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:2000,minStock:500,weeklyNeed:1500,unitCost:25,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
   {id:"raw_cheese",n:"チーズ原材料",type:"raw",cat:"frozen",u:"個",stock:30,minStock:15,weeklyNeed:20,unitCost:400,linked:["チーズ仕入れ"],linkedPid:"cheese"},
   {id:"s_oyster",n:"牡蠣（冷凍）",type:"raw",cat:"frozen",u:"個",stock:40,minStock:15,weeklyNeed:30,unitCost:2600,linked:["牡蠣仕入れ"],linkedPid:"oyster"},
-  {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"個",stock:800,minStock:300,weeklyNeed:500,unitCost:12,linked:["エビ仕入れ"],linkedPid:"shrimp"},
+  {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:2,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
+  {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"尾",stock:0,minStock:600,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
   {id:"s_beef",n:"牛肉",type:"raw",cat:"frozen",u:"個",stock:30,minStock:15,weeklyNeed:20,unitCost:2500,linked:["牛肉仕入れ"],linkedPid:"roastbeef"},
   {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"パック",stock:20,minStock:10,weeklyNeed:15,unitCost:600,linked:["牛すじ仕入れ"],linkedPid:"gyu"},
   {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"本",stock:15,minStock:8,weeklyNeed:10,unitCost:200,linked:["大根仕入れ"],linkedPid:"daikon"},
@@ -610,7 +613,7 @@ function rWorkOrder(){
   h+='<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">';
   h+='<div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">対象日</label>';
   h+='<input type="date" value="'+td+'" onchange="A.woDate=this.value;re()" style="width:auto"></div>';
-  h+='<button class="bp" style="padding:9px 20px;font-size:14px" onclick="doPrint(\'woPrintArea\')">🖨 印刷 / PDF</button></div></div>';
+  h+='<button class="bp" style="padding:9px 20px;font-size:14px" onclick="printWorkOrder()">🖨 印刷 / PDF</button></div></div>';
   h+='<div id="woPrintArea">';
   var dateStr=new Date(td+"T00:00:00").toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
   h+='<div style="border-bottom:2px solid #1e3a6e;padding-bottom:12px;margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:flex-end">';
@@ -776,8 +779,21 @@ function buildInvRows(st){
   if(A.ico==="tanba"&&li["rice"])li["seimaihi"]=(li["seimaihi"]||0)+li["rice"];
   var rows=[];var lkeys=Object.keys(li);
   for(var i=0;i<lkeys.length;i++){var id=lkeys[i];var bq=li[id];var key=st+id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===id){p=PD[j];break;}}rows.push({t:"p",id:id,n:p?p.n:id,u:p?p.u:"",bq:bq,q:fq,p:p?p.sp:0,tx:p?p.tx:0.08,c:p?gc(p):0});}
-  var bt={};for(var i=0;i<flo.length;i++){if(!flo[i].bx)continue;var bids=Object.keys(flo[i].bx);for(var j=0;j<bids.length;j++)bt[bids[j]]=(bt[bids[j]]||0)+(flo[i].bx[bids[j]]||0);}
-  for(var bi=0;bi<BX.length;bi++){var b=BX[bi];if(!(bt[b.id]>0))continue;var bq=bt[b.id];var key=st+"box"+b.id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var pr=bp(b.id,st);rows.push({t:"b",id:"box"+b.id,n:b.n+"（送料）",u:"箱",bq:bq,q:fq,p:pr,tx:0.10,c:pr});}
+  // 送料処理：丹波農商（米）は固定送料、丹農食品は段ボール実費
+  if(A.ico==="tanba"){
+    // 米の固定送料（但馬米穀出荷）東京¥1,500・大阪¥1,000
+    var rg=RG[st]||"ka";
+    var riceShip=RICE_SHIP[rg]||1500;
+    var riceQty=li["rice"]||0;
+    if(riceQty>0){
+      var key=st+"riceship";var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):riceQty;
+      rows.push({t:"b",id:"riceship",n:"米　送料（但馬米穀出荷）",u:"口",bq:riceQty,q:fq,p:riceShip,tx:0.10,c:riceShip});
+    }
+  } else {
+    // 丹農食品：段ボール実費
+    var bt={};for(var i=0;i<flo.length;i++){if(!flo[i].bx)continue;var bids=Object.keys(flo[i].bx);for(var j=0;j<bids.length;j++)bt[bids[j]]=(bt[bids[j]]||0)+(flo[i].bx[bids[j]]||0);}
+    for(var bi=0;bi<BX.length;bi++){var b=BX[bi];if(!(bt[b.id]>0))continue;var bq=bt[b.id];var key=st+"box"+b.id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var pr=bp(b.id,st);rows.push({t:"b",id:"box"+b.id,n:b.n+"（送料）",u:"箱",bq:bq,q:fq,p:pr,tx:0.10,c:pr});}
+  }
   return rows;
 }
 function calcInvTot(rows){var f8=0,o10=0;for(var i=0;i<rows.length;i++){if(rows[i].tx===0.08)f8+=rows[i].p*rows[i].q;else o10+=rows[i].p*rows[i].q;}return{f8:f8,o10:o10,t8:Math.round(f8*0.08),t10:Math.round(o10*0.10),sb:f8+o10,tt:f8+o10+Math.round(f8*0.08)+Math.round(o10*0.10)};}
@@ -846,6 +862,25 @@ function rStock(){
     h+='<button onclick="recvSt(\''+s.id+'\',\'bxr_\')" style="padding:5px 10px;font-size:11px;background:#92400e;color:#fff;border:none;border-radius:6px;flex-shrink:0">入庫</button></div></div>';
   }
   h+='</div></div>';
+  // 冷凍エビ手動加工処理ブロック
+  var rawSh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="raw_shrimp"){rawSh=STOCK[i];break;}}
+  var procSh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_shrimp"){procSh=STOCK[i];break;}}
+  h+='<div class="card" style="border-left:4px solid #7c3aed;margin-bottom:12px">';
+  h+='<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#7c3aed">🦐 冷凍エビ 加工処理</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:12px">';
+  h+='<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center">';
+  h+='<div style="font-size:11px;color:#1e40af;margin-bottom:4px">原材料（冷凍エビ）</div>';
+  h+='<div style="font-size:24px;font-weight:700;color:#1e3a6e">'+(rawSh?rawSh.stock:0)+'<span style="font-size:12px">ケース</span></div></div>';
+  h+='<div style="display:flex;align-items:center;font-size:24px;color:#7c3aed">→</div>';
+  h+='<div style="flex:1;background:#ede9fe;border-radius:8px;padding:12px;text-align:center">';
+  h+='<div style="font-size:11px;color:#7c3aed;margin-bottom:4px">加工済みエビ（むきエビ）</div>';
+  h+='<div style="font-size:24px;font-weight:700;color:#7c3aed">'+(procSh?procSh.stock:0)+'<span style="font-size:12px">尾</span></div></div></div>';
+  h+='<div style="font-size:12px;color:#6b7280;background:#f5f3ff;border-radius:8px;padding:8px 12px;margin-bottom:10px">1ケース加工すると → むきエビ 約600尾 が追加されます</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center">';
+  h+='<input type="number" id="shrimp_proc" placeholder="加工するケース数" style="flex:1;padding:8px 10px" inputmode="numeric">';
+  h+='<button onclick="procShrimp()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
+  h+='</div>';
+
   var cats=["all","frozen","fresh","seasoning","other"];var catLabels={all:"すべて",frozen:"冷凍・加工品",fresh:"野菜・生鮮",seasoning:"調味料",other:"その他"};
   h+='<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">';
   for(var i=0;i<cats.length;i++){var c2=cats[i];var ac=(A.stCat||"all")===c2;h+='<button onclick="A.stCat=\''+c2+'\';re()" style="'+(ac?"background:#1e3a6e;color:#fff;border-color:#1e3a6e":"")+';padding:5px 10px;font-size:11px;white-space:nowrap">'+catLabels[c2]+'</button>';}
@@ -872,6 +907,25 @@ function rStock(){
   return h;
 }
 function openSE(id){SE=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){SE=STOCK[i];break;}}A.modal={type:"se"};re();}
+function procShrimp(){
+  var el=document.getElementById("shrimp_proc");
+  var cases=parseFloat(el?el.value:0)||0;
+  if(!cases||cases<=0)return alert("加工するケース数を入力してください");
+  var raw=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="raw_shrimp"){raw=STOCK[i];break;}}
+  var proc=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_shrimp"){proc=STOCK[i];break;}}
+  if(!raw||!proc)return alert("在庫データが見つかりません");
+  if(raw.stock<cases){if(!confirm("原材料在庫("+raw.stock+"ケース)より多い数量です。続けますか？"))return;}
+  raw.stock=Math.max(0,raw.stock-cases);
+  var produced=Math.round(cases*600);
+  proc.stock+=produced;
+  SLOG.unshift({oid:"proc",st:"加工作業",d:new Date().toISOString().slice(0,10),ts:new Date().toLocaleString("ja-JP"),items:[
+    {mat:"冷凍エビ（原材料）",qty:cases,u:"ケース",prod:"加工作業",remain:raw.stock,sid:raw.id},
+    {mat:"加工済みエビ（むきエビ）",qty:-produced,u:"尾",prod:"加工完了",remain:proc.stock,sid:proc.id}
+  ]});
+  alert("✅ 加工完了！\n冷凍エビ "+cases+"ケース → むきエビ "+produced+"尾\n\n原材料残: "+raw.stock+"ケース\n加工済み残: "+proc.stock+"尾");
+  if(el)el.value="";
+  re();
+}
 function recvSt(id,prefix){
   var pfx=prefix||"rcv_";
   var el=document.getElementById(pfx+id)||document.getElementById("rcv_"+id);
@@ -1067,6 +1121,27 @@ function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)re
 function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}if(!o)return;if(!o.sl)o.sl=[];var files=Array.from(input.files);var loaded=0;files.forEach(function(f){var r=new FileReader();r.onload=function(e){o.sl.push(e.target.result);loaded++;if(loaded===files.length){re();updateOrder(o,null);}};r.readAsDataURL(f);});}
 function viewPhoto(oid,idx){A.modal={type:"ph",oid:oid,idx:idx};re();}
 
+function printWorkOrder(){
+  // スマホSafari対応：新ウィンドウではなくスタイル切り替えで印刷
+  var el=document.getElementById("woPrintArea");
+  if(!el){alert("印刷する内容が見つかりません");return;}
+  // PCは通常印刷、スマホはコンテンツをフルスクリーン表示
+  var ua=navigator.userAgent;
+  var isMobile=/iPhone|iPad|iPod|Android/i.test(ua);
+  if(isMobile){
+    // スマホ：印刷プレビュー画面を表示
+    var css=document.querySelector("style")?document.querySelector("style").innerHTML:"";
+    var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>作業指示書</title><style>'+css+'body{background:#fff!important;padding:16px}button{display:none!important}@page{margin:10mm;size:A4}</style></head><body>'+el.innerHTML+'<br><button onclick="window.print()" style="display:block!important;width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px">🖨 この画面を印刷・保存する</button></body></html>';
+    var w=window.open("","_blank");
+    if(w){w.document.write(html);w.document.close();}
+    else{
+      // ポップアップブロック時はページ内に表示
+      document.body.innerHTML='<div style="padding:16px;background:#fff;min-height:100vh">'+el.innerHTML+'<br><button onclick="location.reload()" style="width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px">← アプリに戻る</button></div>';
+    }
+  } else {
+    doPrint("woPrintArea");
+  }
+}
 function doPrint(elId){
   var el=document.getElementById(elId);
   if(!el){alert("印刷する内容が見つかりません");return;}
