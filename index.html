@@ -60,6 +60,40 @@ function supaFetch(method,path,body){
   return fetch(SUPA_URL+"/rest/v1/"+path,opts);
 }
 
+// 在庫データをSupabaseに保存
+function saveStockToCloud(){
+  var items=[];
+  for(var i=0;i<STOCK.length;i++){
+    if(STOCK[i].type==="box")continue;
+    items.push({id:STOCK[i].id,name:STOCK[i].n,stock:STOCK[i].stock});
+  }
+  for(var i=0;i<items.length;i++){
+    (function(item){
+      supaFetch("POST","stock_items?on_conflict=id",item).catch(function(e){console.error("Stock save error",e);});
+    })(items[i]);
+  }
+}
+
+// 在庫データをSupabaseから読み込む
+function loadStockFromCloud(callback){
+  supaFetch("GET","stock_items?select=*")
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(!Array.isArray(data)||data.length===0){if(callback)callback();return;}
+      for(var i=0;i<data.length;i++){
+        var row=data[i];
+        for(var j=0;j<STOCK.length;j++){
+          if(STOCK[j].id===row.id){
+            STOCK[j].stock=Number(row.stock)||0;
+            break;
+          }
+        }
+      }
+      if(callback)callback();
+    })
+    .catch(function(e){console.error("Stock load error",e);if(callback)callback();});
+}
+
 // 全発注データをSupabaseから読み込む
 function loadOrders(callback){
   supaFetch("GET","orders?select=*&order=id.desc")
@@ -552,6 +586,7 @@ function submitOrder(){
   OF.done=true;
   OF.stockAlerts=(A.user.r==="admin"?stockAlerts:[]);
   re();
+  saveStockToCloud();
   saveOrder(newOrder,null);
   for(var i=0;i<toDelete.length;i++){deleteOrder(toDelete[i],null);}
 }
@@ -1178,6 +1213,7 @@ function doTanaoroshi(){
   if(!updated.length)return alert("入力された値がありません。変更する食材の実数を入力してください。");
   var msg="✅ 棚卸し完了！\n\n更新した食材：\n"+updated.join("\n");
   alert(msg);
+  saveStockToCloud();
   re();
 }
 function openSE(id){SE=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){SE=STOCK[i];break;}}A.modal={type:"se"};re();}
@@ -1359,6 +1395,7 @@ function procCheese(){
   proc.stock+=qty;
   alert("✅ 燻製チーズ加工完了！\n原材料 -"+qty+"個 → 燻製済み +"+qty+"個\n\n原材料残: "+raw.stock+"個\n燻製済み在庫: "+proc.stock+"個");
   if(el)el.value="";
+  saveStockToCloud();
   re();
 }
 function doNyuko(){
@@ -1375,6 +1412,7 @@ function doNyuko(){
   }
   if(!updated.length){alert("入庫数を1つ以上入力してください");return;}
   alert("✅ 入庫完了！\n\n" + updated.join("\n"));
+  saveStockToCloud();
   cm();
 }
 function cm(){A.modal=null;re();}
@@ -1516,7 +1554,11 @@ function closePrintOverlay(){
 
 syncVis();
 showLoading();
-loadOrders(function(){re();});
+loadOrders(function(){
+  loadStockFromCloud(function(){
+    re();
+  });
+});
 </script>
 </body>
 </html>
