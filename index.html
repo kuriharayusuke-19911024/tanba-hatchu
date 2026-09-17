@@ -171,6 +171,60 @@ var PD=[
   {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600},{id:2,n:"調味料",q:1,u:"式",c:80},{id:3,n:"人件費",q:1,u:"式",c:120}]},
   {id:"chestnut",n:"丹波栗渋皮煮",u:"個",sp:18000,tx:0.08,v:false,co:"tanno",ings:[{id:1,n:"丹波栗仕入れ",q:1,u:"個",c:7200}]}
 ];
+// 商品→在庫の対応マップ（1発注単位あたりの使用量）
+var STOCK_MAP={
+  rice:    [{sid:"s_rice",   qty:1}],
+  potato:  [{sid:"s_potato", qty:667},{sid:"s_mayo",qty:100}],
+  yam:     [{sid:"s_yam",    qty:1}],
+  mushroom:[{sid:"s_mushroom",qty:1}],
+  cheese:  [{sid:"raw_cheese",qty:1}],
+  oyster:  [{sid:"s_oyster", qty:1}],
+  shrimp:  [{sid:"raw_shrimp",qty:1}],
+  roastbeef:[{sid:"s_beef",  qty:1}],
+  daikon:  [{sid:"s_daikon", qty:0.25}],
+  negi:    [{sid:"s_negi",   qty:1}],
+  gyu:     [{sid:"s_gyusuji",qty:1}],
+  chestnut:[{sid:"s_chestnut",qty:1}]
+};
+
+// 在庫IDから在庫オブジェクトを取得
+function getStock(sid){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===sid)return STOCK[i];}return null;}
+
+// 発注時に在庫を減算（発注確定 = 必要量を確保）
+function deductStockByOrder(it){
+  var alerts=[];
+  var pids=Object.keys(it);
+  for(var i=0;i<pids.length;i++){
+    var pid=pids[i],qty=it[pid];
+    var map=STOCK_MAP[pid];
+    if(!map)continue;
+    for(var j=0;j<map.length;j++){
+      var st=getStock(map[j].sid);
+      if(!st)continue;
+      var use=map[j].qty*qty;
+      st.stock=Math.round((st.stock-use)*100)/100;
+      if(st.stock<0)st.stock=0;
+      if(st.stock<=st.minStock){
+        alerts.push({n:st.n,stock:st.stock,min:st.minStock,u:st.u});
+      }
+    }
+  }
+  return alerts;
+}
+
+// 在庫アラートチェック（発注点以下の食材リスト）
+function getStockAlerts(){
+  var alerts=[];
+  for(var i=0;i<STOCK.length;i++){
+    var s=STOCK[i];
+    if(s._hidden||s.type==="box")continue;
+    if(s.stock<=s.minStock){
+      alerts.push({sid:s.id,n:s.n,stock:s.stock,min:s.minStock,u:s.u,empty:s.stock<=0});
+    }
+  }
+  return alerts;
+}
+
 function pn(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].n;}return id;}
 function pu(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].u;}return "";}
 function gc(p){if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
@@ -314,6 +368,22 @@ function re(){
   if(cur)h+='<span style="color:#374151;font-weight:600">'+cur.ic+' '+cur.lb+'</span>';
   if(A.tab!==tabs[0].id)h+='<span style="margin-left:auto;flex-shrink:0"><button onclick="goBack()" style="background:none;border:1px solid #d1d5db;color:#374151;padding:3px 10px;font-size:11px;cursor:pointer;border-radius:4px">← 戻る</button></span>';
   h+='</div>';
+  // 在庫アラートバナー（発注点以下の食材があれば常時表示）
+  if(A.user.r==="admin"){
+    var stAlerts=getStockAlerts();
+    if(stAlerts.length>0){
+      var empties=stAlerts.filter(function(x){return x.empty;});
+      var lows=stAlerts.filter(function(x){return !x.empty;});
+      h+='<div style="background:'+( empties.length>0?"#fef2f2":"#fffbeb")+';border-bottom:2px solid '+( empties.length>0?"#fca5a5":"#f59e0b")+';padding:7px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px">';
+      h+='<span style="font-weight:700;color:'+( empties.length>0?"#dc2626":"#92400e")+'">'+( empties.length>0?"🔴 在庫ゼロ！":"🟡 在庫注意")+'</span>';
+      for(var ai=0;ai<stAlerts.length;ai++){
+        var al=stAlerts[ai];
+        h+='<span style="background:'+( al.empty?"#fecaca":"#fef3c7")+';color:'+( al.empty?"#dc2626":"#92400e")+';padding:2px 8px;border-radius:20px;white-space:nowrap">'+al.n+' '+al.stock+al.u+'</span>';
+      }
+      h+='<button onclick="sTab(\'stock\')" style="margin-left:auto;background:'+( empties.length>0?"#dc2626":"#f59e0b")+';color:#fff;border:none;padding:3px 10px;border-radius:6px;font-size:11px;cursor:pointer;flex-shrink:0">在庫を更新 →</button>';
+      h+='</div>';
+    }
+  }
   h+='<div class="main">'+rPage()+'</div>';
   if(A.modal)h+=rModal();
   el.innerHTML=h;
@@ -395,10 +465,24 @@ function lo(){A.user=null;SU=null;OF={s:"",q:{},done:false};re();}
 // ============================================================
 function rOrder(){
   if(OF.done){
-    return '<div style="text-align:center;padding:50px 20px"><div style="font-size:48px;margin-bottom:12px">🎉</div>'
-      +'<div style="font-size:20px;font-weight:700;color:#16a34a;margin-bottom:8px">発注完了しました！</div>'
-      +'<div style="color:#6b7280;margin-bottom:24px">'+OF.s+' の発注を受け付けました</div>'
-      +'<button class="bp" onclick="resetOF()">続けて発注する</button></div>';
+    var h='<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🎉</div>';
+    h+='<div style="font-size:20px;font-weight:700;color:#16a34a;margin-bottom:8px">発注完了しました！</div>';
+    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span></div>';
+    // 在庫アラート表示
+    var alerts=OF.stockAlerts||[];
+    if(alerts.length>0){
+      h+='<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px;margin-bottom:16px;text-align:left">';
+      h+='<div style="font-weight:700;color:#dc2626;margin-bottom:8px;font-size:14px">⚠️ 在庫が少なくなっています！</div>';
+      for(var i=0;i<alerts.length;i++){
+        var al=alerts[i];
+        h+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fee2e2;font-size:13px">';
+        h+='<span style="font-weight:600;color:'+( al.empty?"#dc2626":"#92400e")+'">'+( al.empty?"🔴":"🟡")+' '+al.n+'</span>';
+        h+='<span style="color:'+( al.empty?"#dc2626":"#92400e")+'">'+al.stock+al.u+' 残'+( al.empty?" ← 在庫ゼロ！":"")+'</span></div>';
+      }
+      h+='<div style="font-size:12px;color:#6b7280;margin-top:8px">📦 在庫タブから入庫登録してください</div></div>';
+    }
+    h+='<button class="bp" onclick="resetOF()">続けて発注する</button></div>';
+    return h;
   }
   var ps=[];for(var i=0;i<PD.length;i++){if(PD[i].v&&(PD[i].co==="tanno"||PD[i].id==="rice"))ps.push(PD[i]);}
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">🛒 発注フォーム</div>';
@@ -444,14 +528,17 @@ function submitOrder(){
   var it={};var hasItem=false;
   for(var i=0;i<PD.length;i++){var q=OF.q[PD[i].id]||0;if(q>0){it[PD[i].id]=q;hasItem=true;}}
   if(!hasItem)return alert("1品以上入力してください");
-  // 同じ店舗の出荷済み履歴をSupabaseから削除
+  // 同じ店舗の出荷済み履歴を削除
   var toDelete=[];for(var i=0;i<OR.length;i++){if(OR[i].s===OF.s&&OR[i].st==="shipped")toDelete.push(OR[i].id);}
   var newOR=[];for(var i=0;i<OR.length;i++){if(OR[i].s!==OF.s||OR[i].st!=="shipped")newOR.push(OR[i]);}
   OR=newOR;
   var newOrder={id:Date.now(),s:OF.s,d:new Date().toISOString().slice(0,10),it:it,bx:{},st:"pending",sl:[]};
   OR.unshift(newOrder);
-  OF.done=true;re();
-  // Supabaseに保存
+  // 在庫を自動減算
+  var stockAlerts=deductStockByOrder(it);
+  OF.done=true;
+  OF.stockAlerts=stockAlerts;
+  re();
   saveOrder(newOrder,null);
   for(var i=0;i<toDelete.length;i++){deleteOrder(toDelete[i],null);}
 }
@@ -603,56 +690,135 @@ function markShipped(oid){
 function rWorkOrder(){
   var td=A.woDate||new Date().toISOString().slice(0,10);
   var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
-  var totals={};
-  for(var i=0;i<pending.length;i++){var pids=Object.keys(pending[i].it);for(var j=0;j<pids.length;j++)totals[pids[j]]=(totals[pids[j]]||0)+pending[i].it[pids[j]];}
+
+  // 全品目リストを収集
+  var allPids=[];
+  for(var i=0;i<pending.length;i++){
+    var pids=Object.keys(pending[i].it);
+    for(var j=0;j<pids.length;j++){
+      var found=false;for(var k=0;k<allPids.length;k++){if(allPids[k]===pids[j]){found=true;break;}}
+      if(!found)allPids.push(pids[j]);
+    }
+  }
+
+  // 段ボール合計
   var bTotal={};
-  for(var i=0;i<pending.length;i++){if(!pending[i].bx)continue;var bids=Object.keys(pending[i].bx);for(var j=0;j<bids.length;j++)bTotal[bids[j]]=(bTotal[bids[j]]||0)+(pending[i].bx[bids[j]]||0);}
+  for(var i=0;i<pending.length;i++){
+    if(!pending[i].bx)continue;
+    var bids=Object.keys(pending[i].bx);
+    for(var j=0;j<bids.length;j++)bTotal[bids[j]]=(bTotal[bids[j]]||0)+(pending[i].bx[bids[j]]||0);
+  }
+
   var h='<div class="no-print">';
   h+='<div style="font-size:16px;font-weight:700;margin-bottom:4px">📄 作業指示書</div>';
-  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:14px">印刷して朝の作業確認にお使いください</div>';
-  h+='<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:12px">印刷して朝の作業確認にお使いください</div>';
+  h+='<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">';
   h+='<div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">対象日</label>';
   h+='<input type="date" value="'+td+'" onchange="A.woDate=this.value;re()" style="width:auto"></div>';
-  h+='<button class="bp" style="padding:9px 20px;font-size:14px" onclick="printWorkOrder()">🖨 印刷 / PDF</button></div></div>';
+  h+='<button class="bp" style="padding:9px 20px;font-size:14px" onclick="printWorkOrder()">🖨 印刷 / PDF</button></div>';
+  h+='<button onclick="goBack()" style="width:100%;padding:14px;background:#374151;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;margin-bottom:10px;cursor:pointer">← 前の画面に戻る</button>';
+  h+='<div style="font-size:11px;color:#6b7280;text-align:center;margin-bottom:12px">画面を左→右にスワイプしても戻れます</div>';
+  h+='</div>';
+
   h+='<div id="woPrintArea">';
   var dateStr=new Date(td+"T00:00:00").toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
-  h+='<div style="border-bottom:2px solid #1e3a6e;padding-bottom:12px;margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:flex-end">';
-  h+='<div><div style="font-size:20px;font-weight:700;color:#1e3a6e">作業指示書</div><div style="font-size:13px;color:#6b7280;margin-top:3px">株式会社丹波農商 / 株式会社丹農食品</div></div>';
-  h+='<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#1e3a6e">出荷日：'+dateStr+'</div><div style="font-size:13px;color:#6b7280;margin-top:2px">未出荷 '+pending.length+'件</div></div></div></div>';
-  h+='<div style="margin-bottom:20px"><div style="font-size:14px;font-weight:700;background:#1e3a6e;color:#fff;padding:7px 12px;border-radius:6px;margin-bottom:10px">① 本日の製造・準備 合計数量</div>';
-  h+='<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f1f5f9"><th style="text-align:left;padding:8px 10px;font-size:12px;border:1px solid #e2e8f0">商品名</th><th style="padding:8px 10px;font-size:12px;border:1px solid #e2e8f0;text-align:right">合計数量</th></tr></thead><tbody>';
-  var tkeys=Object.keys(totals);
-  if(!tkeys.length)h+='<tr><td colspan="2" style="padding:16px;text-align:center;color:#6b7280;border:1px solid #e2e8f0">未出荷の発注がありません</td></tr>';
-  for(var i=0;i<tkeys.length;i++){
-    var pid=tkeys[i];var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pid){p=PD[j];break;}}
-    h+='<tr style="border:1px solid #e2e8f0"><td style="padding:9px 10px;font-size:14px;font-weight:600;border:1px solid #e2e8f0">'+(p?p.n:pid)+'</td><td style="padding:9px 10px;font-size:16px;font-weight:700;color:#1e3a6e;text-align:right;border:1px solid #e2e8f0">'+fmt(totals[pid])+' <span style="font-size:12px;font-weight:400;color:#6b7280">'+(p?p.u:"")+'</span></td></tr>';
+
+  // ヘッダー
+  h+='<div style="border-bottom:2px solid #1e3a6e;padding-bottom:10px;margin-bottom:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-end">';
+  h+='<div><div style="font-size:18px;font-weight:700;color:#1e3a6e">作業指示書</div>';
+  h+='<div style="font-size:12px;color:#6b7280;margin-top:2px">株式会社丹波農商 / 株式会社丹農食品</div></div>';
+  h+='<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#1e3a6e">出荷日：'+dateStr+'</div>';
+  h+='<div style="font-size:12px;color:#6b7280;margin-top:2px">未出荷 '+pending.length+'店舗</div></div></div></div>';
+
+  if(!pending.length){
+    h+='<div style="padding:20px;text-align:center;color:#6b7280">未出荷の発注がありません</div>';
+    h+='</div>';
+    return h;
   }
-  h+='</tbody></table></div>';
-  h+='<div style="margin-bottom:20px"><div style="font-size:14px;font-weight:700;background:#166534;color:#fff;padding:7px 12px;border-radius:6px;margin-bottom:10px">② 店舗別 発注内容</div>';
-  h+='<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f1f5f9"><th style="text-align:left;padding:8px 10px;font-size:12px;border:1px solid #e2e8f0">店舗名</th><th style="text-align:left;padding:8px 10px;font-size:12px;border:1px solid #e2e8f0">発注内容</th><th style="padding:8px 10px;font-size:12px;border:1px solid #e2e8f0;text-align:center">段ボール</th><th style="padding:8px 10px;font-size:12px;border:1px solid #e2e8f0;text-align:center">確認</th></tr></thead><tbody>';
+
+  // ① 品目×店舗 クロス表（写真のような形式）
+  h+='<div style="margin-bottom:16px">';
+  h+='<div style="font-size:13px;font-weight:700;background:#1e3a6e;color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px">① 品目別・店舗別 一覧表</div>';
+  h+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
+  h+='<table style="border-collapse:collapse;font-size:12px;width:100%;min-width:'+(100+pending.length*80)+'px">';
+  // ヘッダー行：品目 | 店舗1 | 店舗2 | ... | 合計
+  h+='<thead><tr style="background:#1e3a6e;color:#fff">';
+  h+='<th style="padding:8px 10px;text-align:left;border:1px solid #374151;min-width:100px;font-weight:600">品目</th>';
   for(var i=0;i<pending.length;i++){
-    var o=pending[i];
-    var boxStr="";for(var j=0;j<BX.length;j++){if((o.bx[BX[j].id]||0)>0)boxStr+=BX[j].n+' '+o.bx[BX[j].id]+'箱<br>';}
-    if(!boxStr)boxStr="−";
-    var itemStr="";var ipids=Object.keys(o.it);
-    for(var j=0;j<ipids.length;j++)itemStr+='<div style="font-size:13px;padding:3px 0"><span style="font-weight:600">'+pn(ipids[j])+'</span> <span style="color:#1e3a6e;font-weight:700;margin-left:8px">'+o.it[ipids[j]]+' '+pu(ipids[j])+'</span></div>';
-    h+='<tr style="border:1px solid #e2e8f0"><td style="padding:10px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;vertical-align:top;min-width:140px">'+o.s+'<br><span style="font-size:11px;font-weight:400;color:#6b7280">'+o.d+'</span></td>';
-    h+='<td style="padding:10px;border:1px solid #e2e8f0;vertical-align:top">'+itemStr+'</td>';
-    h+='<td style="padding:10px;font-size:12px;border:1px solid #e2e8f0;vertical-align:top;text-align:center;min-width:100px">'+boxStr+'</td>';
-    h+='<td style="padding:10px;border:1px solid #e2e8f0;vertical-align:top;text-align:center;min-width:60px"><div style="width:32px;height:32px;border:2px solid #6b7280;border-radius:4px;margin:0 auto"></div></td></tr>';
+    var sname=pending[i].s.replace("天ぷらとワイン大塩　","").replace("天ぷらとワイン大塩","");
+    h+='<th style="padding:8px 6px;text-align:center;border:1px solid #374151;min-width:70px;font-weight:600;font-size:11px">'+sname+'</th>';
   }
-  h+='</tbody></table></div>';
+  h+='<th style="padding:8px 8px;text-align:center;border:1px solid #374151;min-width:60px;font-weight:700;background:#0f2a52">合計</th>';
+  h+='</tr></thead>';
+  h+='<tbody>';
+  // 品目ごとの行
+  for(var pi=0;pi<allPids.length;pi++){
+    var pid=allPids[pi];
+    var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pid){p=PD[j];break;}}
+    var rowTotal=0;
+    var bg=pi%2===0?"#fff":"#f8fafc";
+    h+='<tr style="background:'+bg+'">';
+    h+='<td style="padding:8px 10px;font-weight:600;border:1px solid #e2e8f0;font-size:12px">'+(p?p.n:pid)+'<span style="font-size:10px;color:#6b7280;margin-left:3px">'+(p?p.u:"")+'</span></td>';
+    for(var si=0;si<pending.length;si++){
+      var qty=pending[si].it[pid]||0;
+      rowTotal+=qty;
+      h+='<td style="padding:8px 6px;text-align:center;border:1px solid #e2e8f0;font-size:14px;font-weight:'+(qty>0?"700":"400")+';color:'+(qty>0?"#1e3a6e":"#d1d5db")+'">';
+      h+=(qty>0?qty:"−")+'</td>';
+    }
+    h+='<td style="padding:8px 8px;text-align:center;border:1px solid #e2e8f0;font-size:15px;font-weight:700;color:#1e3a6e;background:#eff6ff">'+rowTotal+'</td>';
+    h+='</tr>';
+  }
+  // 確認チェック行
+  h+='<tr style="background:#fef3c7">';
+  h+='<td style="padding:8px 10px;font-weight:600;border:1px solid #e2e8f0;font-size:12px;color:#92400e">✓ 確認</td>';
+  for(var si=0;si<pending.length;si++){
+    h+='<td style="padding:8px 6px;text-align:center;border:1px solid #e2e8f0">';
+    h+='<div style="width:28px;height:28px;border:2px solid #92400e;border-radius:4px;margin:0 auto"></div></td>';
+  }
+  h+='<td style="border:1px solid #e2e8f0;background:#fef3c7"></td>';
+  h+='</tr>';
+  h+='</tbody></table></div></div>';
+
+  // ② 段ボール合計
   var hasBx=false;for(var k in bTotal){if(bTotal[k]>0){hasBx=true;break;}}
   if(hasBx){
-    h+='<div style="margin-bottom:20px"><div style="font-size:14px;font-weight:700;background:#92400e;color:#fff;padding:7px 12px;border-radius:6px;margin-bottom:10px">③ 本日使用 段ボール合計</div>';
+    h+='<div style="margin-bottom:16px">';
+    h+='<div style="font-size:13px;font-weight:700;background:#92400e;color:#fff;padding:6px 12px;border-radius:6px;margin-bottom:8px">② 段ボール合計</div>';
     h+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
-    for(var i=0;i<BX.length;i++){if(!(bTotal[BX[i].id]>0))continue;h+='<div style="border:2px solid #f59e0b;border-radius:8px;padding:12px 20px;text-align:center;background:#fffbeb"><div style="font-size:12px;color:#92400e;margin-bottom:4px">'+BX[i].n+'</div><div style="font-size:28px;font-weight:700;color:#92400e">'+bTotal[BX[i].id]+'</div><div style="font-size:11px;color:#92400e">箱</div></div>';}
+    for(var i=0;i<BX.length;i++){
+      if(!(bTotal[BX[i].id]>0))continue;
+      h+='<div style="border:2px solid #f59e0b;border-radius:8px;padding:10px 18px;text-align:center;background:#fffbeb">';
+      h+='<div style="font-size:11px;color:#92400e;margin-bottom:3px">'+BX[i].n+'</div>';
+      h+='<div style="font-size:26px;font-weight:700;color:#92400e">'+bTotal[BX[i].id]+'</div>';
+      h+='<div style="font-size:10px;color:#92400e">箱</div></div>';
+    }
     h+='</div></div>';
   }
-  h+='<div style="margin-top:24px;display:flex;gap:16px">';
+
+  // ③ 署名欄
+  h+='<div style="display:flex;gap:12px;margin-top:16px">';
   var roles=["確認者","梱包担当","出荷担当"];
-  for(var i=0;i<roles.length;i++)h+='<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:10px;text-align:center"><div style="font-size:12px;color:#6b7280;margin-bottom:24px">'+roles[i]+'</div><div style="border-top:1px solid #e2e8f0;padding-top:6px;font-size:11px;color:#e2e8f0">サイン</div></div>';
+  for(var i=0;i<roles.length;i++){
+    h+='<div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:10px;text-align:center">';
+    h+='<div style="font-size:11px;color:#6b7280;margin-bottom:20px">'+roles[i]+'</div>';
+    h+='<div style="border-top:1px solid #e2e8f0;padding-top:4px;font-size:10px;color:#e2e8f0">サイン</div></div>';
+  }
+  h+='</div>';
+
+  // ④ 発送伝票欄（印刷時に使う手書き用）
+  h+='<div style="margin-top:20px;border:2px solid #1e3a6e;border-radius:8px;padding:14px">';
+  h+='<div style="font-size:13px;font-weight:700;color:#1e3a6e;margin-bottom:12px">📬 発送伝票貼り付け欄</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat('+Math.min(pending.length,3)+',1fr);gap:10px">';
+  for(var i=0;i<pending.length;i++){
+    var sname=pending[i].s.replace("天ぷらとワイン大塩　","").replace("天ぷらとワイン大塩","");
+    h+='<div style="border:1px dashed #93c5fd;border-radius:6px;padding:8px;min-height:80px">';
+    h+='<div style="font-size:11px;font-weight:600;color:#1e3a6e;margin-bottom:4px">'+sname+'</div>';
+    h+='<div style="font-size:10px;color:#9ca3af">伝票をここに貼る</div></div>';
+  }
   h+='</div></div>';
+
+  h+='</div>';
   return h;
 }
 
@@ -843,7 +1009,8 @@ function rStock(){
   var vis=[];for(var i=0;i<STOCK.length;i++){if(!STOCK[i]._hidden&&STOCK[i].type!=="box")vis.push(STOCK[i]);}
   var boxes=[];for(var i=0;i<STOCK.length;i++){if(STOCK[i].type==="box")boxes.push(STOCK[i]);}
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">📦 在庫管理</div>';
-  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:12px">出荷完了時に在庫が自動減算されます</div>';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:10px">発注時に自動減算・仕入れ時に手動で追加できます</div>';
+  h+='<button onclick="A.modal={type:\'nyuko\'};re()" style="width:100%;padding:14px;background:#166534;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;margin-bottom:12px;cursor:pointer">📥 まとめ入庫登録</button>';
   h+='<div class="card" style="border-left:4px solid #92400e;margin-bottom:12px">';
   h+='<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#92400e">📦 段ボール在庫</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
@@ -904,7 +1071,42 @@ function rStock(){
   }
   h+='</div>';
   h+='<button onclick="A.modal={type:\'addSt\'};re()" style="width:100%;padding:11px;border:1px dashed #e2e8f0;margin-top:6px">＋ 食材を追加する</button>';
+  // 月末棚卸しボタン
+  h+='<div class="card" style="margin-top:12px;border:2px solid #7c3aed">';
+  h+='<div style="font-weight:700;font-size:14px;color:#7c3aed;margin-bottom:8px">📋 月末棚卸し</div>';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:12px">実際の在庫数に合わせて各食材の数量を更新します。月末に実数を入力してください。</div>';
+  h+='<div id="tanaoroshi-area">';
+  for(var ti=0;ti<STOCK.length;ti++){
+    var ts2=STOCK[ti];if(ts2._hidden||ts2.type==="box")continue;
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">';
+    h+='<div style="flex:1;font-size:13px;font-weight:600">'+ts2.n+'</div>';
+    h+='<div style="font-size:12px;color:#6b7280;width:60px;text-align:right">現在:'+ts2.stock+ts2.u+'</div>';
+    h+='<input type="number" id="tana_'+ts2.id+'" placeholder="実数" style="width:70px;padding:5px 7px;font-size:13px;text-align:right" inputmode="numeric">';
+    h+='<span style="font-size:12px;color:#6b7280;width:24px">'+ts2.u+'</span>';
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<button onclick="doTanaoroshi()" style="width:100%;padding:12px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;margin-top:12px;cursor:pointer">棚卸し実行 ✓</button>';
+  h+='</div>';
   return h;
+}
+
+function doTanaoroshi(){
+  var updated=[];
+  for(var i=0;i<STOCK.length;i++){
+    var s=STOCK[i];if(s._hidden||s.type==="box")continue;
+    var el=document.getElementById("tana_"+s.id);
+    if(!el||el.value==="")continue;
+    var newVal=parseFloat(el.value);
+    if(isNaN(newVal)||newVal<0)continue;
+    var old=s.stock;
+    s.stock=newVal;
+    updated.push(s.n+": "+old+s.u+" → "+newVal+s.u);
+  }
+  if(!updated.length)return alert("入力された値がありません。変更する食材の実数を入力してください。");
+  var msg="✅ 棚卸し完了！\n\n更新した食材：\n"+updated.join("\n");
+  alert(msg);
+  re();
 }
 function openSE(id){SE=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){SE=STOCK[i];break;}}A.modal={type:"se"};re();}
 function procShrimp(){
@@ -1042,7 +1244,52 @@ function rModal(){
   if(A.modal.type==="ph")return rPH();
   if(A.modal.type==="se")return rSE();
   if(A.modal.type==="addSt")return rAddSt();
+  if(A.modal.type==="nyuko")return rNyuko();
   return "";
+}
+
+function rNyuko(){
+  var h='<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()">';
+  h+='<div class="mh"></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+  h+='<div style="font-size:16px;font-weight:700;color:#166534">📥 まとめ入庫登録</div>';
+  h+='<button onclick="cm()" style="background:none;border:none;font-size:22px;color:#6b7280;cursor:pointer">✕</button></div>';
+  h+='<div style="font-size:12px;color:#6b7280;margin-bottom:14px">仕入れた数量を入力して「入庫登録」を押してください。入力がない食材はそのままです。</div>';
+  // 食材一覧（ボックス以外）
+  var vis=[];for(var i=0;i<STOCK.length;i++){if(!STOCK[i]._hidden&&STOCK[i].type!=="box")vis.push(STOCK[i]);}
+  for(var i=0;i<vis.length;i++){
+    var s=vis[i];
+    var sc=s.stock<=0?"#dc2626":s.stock<s.minStock?"#92400e":"#374151";
+    var bg=s.stock<=0?"#fef2f2":s.stock<s.minStock?"#fffbeb":"#f8fafc";
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;margin-bottom:6px;background:'+bg+';border-radius:8px;border:1px solid #e2e8f0">';
+    h+='<div style="flex:1;min-width:0">';
+    h+='<div style="font-size:13px;font-weight:600;color:#111">'+s.n+'</div>';
+    h+='<div style="font-size:11px;color:'+sc+';margin-top:1px">現在庫: '+s.stock+s.u+(s.stock<=0?" 🔴 在庫ゼロ":s.stock<s.minStock?" 🟡 少ない":"")+'</div>';
+    h+='</div>';
+    h+='<input type="number" id="nyu_'+s.id+'" placeholder="入庫数" style="width:76px;padding:7px 8px;font-size:14px;text-align:right;border-radius:8px;border:1px solid #e2e8f0" inputmode="numeric">';
+    h+='<span style="font-size:12px;color:#6b7280;width:28px;flex-shrink:0">'+s.u+'</span>';
+    h+='</div>';
+  }
+  h+='<button onclick="doNyuko()" style="width:100%;padding:13px;background:#166534;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;margin-top:6px;cursor:pointer">入庫登録 ✓</button>';
+  h+='</div></div>';
+  return h;
+}
+
+function doNyuko(){
+  var vis=[];for(var i=0;i<STOCK.length;i++){if(!STOCK[i]._hidden&&STOCK[i].type!=="box")vis.push(STOCK[i]);}
+  var updated=[];
+  for(var i=0;i<vis.length;i++){
+    var s=vis[i];
+    var el=document.getElementById("nyu_"+s.id);
+    if(!el||el.value==="")continue;
+    var add=parseFloat(el.value);
+    if(isNaN(add)||add<=0)continue;
+    s.stock=Math.round((s.stock+add)*100)/100;
+    updated.push(s.n+" + "+add+s.u+" = "+s.stock+s.u);
+  }
+  if(!updated.length){alert("入庫数を1つ以上入力してください");return;}
+  alert("✅ 入庫完了！\n\n" + updated.join("\n"));
+  cm();
 }
 function cm(){A.modal=null;re();}
 function rSlip(){
@@ -1122,35 +1369,48 @@ function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[
 function viewPhoto(oid,idx){A.modal={type:"ph",oid:oid,idx:idx};re();}
 
 function printWorkOrder(){
-  // スマホSafari対応：新ウィンドウではなくスタイル切り替えで印刷
-  var el=document.getElementById("woPrintArea");
-  if(!el){alert("印刷する内容が見つかりません");return;}
-  // PCは通常印刷、スマホはコンテンツをフルスクリーン表示
-  var ua=navigator.userAgent;
-  var isMobile=/iPhone|iPad|iPod|Android/i.test(ua);
-  if(isMobile){
-    // スマホ：印刷プレビュー画面を表示
-    var css=document.querySelector("style")?document.querySelector("style").innerHTML:"";
-    var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>作業指示書</title><style>'+css+'body{background:#fff!important;padding:16px}button{display:none!important}@page{margin:10mm;size:A4}</style></head><body>'+el.innerHTML+'<br><button onclick="window.print()" style="display:block!important;width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px">🖨 この画面を印刷・保存する</button></body></html>';
-    var w=window.open("","_blank");
-    if(w){w.document.write(html);w.document.close();}
-    else{
-      // ポップアップブロック時はページ内に表示
-      document.body.innerHTML='<div style="padding:16px;background:#fff;min-height:100vh">'+el.innerHTML+'<br><button onclick="location.reload()" style="width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px">← アプリに戻る</button></div>';
-    }
-  } else {
-    doPrint("woPrintArea");
-  }
+  doPrint("woPrintArea");
 }
 function doPrint(elId){
   var el=document.getElementById(elId);
   if(!el){alert("印刷する内容が見つかりません");return;}
-  var css="";var styles=document.querySelectorAll("style");for(var i=0;i<styles.length;i++)css+=styles[i].innerHTML;
-  var html='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>丹波発注ライン</title><style>'+css+'body{background:#fff!important}@page{margin:12mm;size:A4}button{display:none!important}</style></head><body style="padding:16px">'+el.innerHTML+'</body></html>';
-  var w=window.open("","_blank","width=900,height=700");
-  if(!w){alert("ポップアップがブロックされています。\nブラウザのポップアップ許可を有効にしてください。");return;}
-  w.document.write(html);w.document.close();w.onload=function(){w.focus();w.print();};
+  // すでにオーバーレイがあれば削除
+  closePrintOverlay();
+  var overlay=document.createElement("div");
+  overlay.id="print-overlay";
+  overlay.style.cssText="position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px";
+  var css="";var styles=document.querySelectorAll("style");
+  for(var i=0;i<styles.length;i++)css+=styles[i].innerHTML;
+  // ボタンは .print-hide クラスで非表示にする（buttonタグ全体を消さない）
+  var backBtn='<button class="back-overlay-btn" onclick="closePrintOverlay()" style="display:block;width:100%;padding:14px;background:#374151;color:#fff;border:none;border-radius:8px;font-size:16px;margin-bottom:16px;cursor:pointer">← アプリに戻る（スワイプでも戻れます）</button>';
+  var printBtn='<button class="back-overlay-btn" onclick="window.print()" style="display:block;width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px;margin-bottom:8px;cursor:pointer">🖨 印刷 / PDF保存</button>';
+  overlay.innerHTML='<style>'+css+'@page{margin:12mm;size:A4}'
+    +'@media print{.back-overlay-btn{display:none!important}.no-print{display:none!important}}'
+    +'</style>'
+    +backBtn+el.innerHTML+printBtn;
+  document.body.appendChild(overlay);
 }
+function closePrintOverlay(){
+  var o=document.getElementById("print-overlay");if(o)o.parentNode.removeChild(o);
+}
+
+// スワイプで戻る（左→右スワイプ）
+(function(){
+  var startX=0,startY=0;
+  document.addEventListener("touchstart",function(e){
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener("touchend",function(e){
+    var dx=e.changedTouches[0].clientX-startX;
+    var dy=e.changedTouches[0].clientY-startY;
+    if(dx>80&&Math.abs(dx)>Math.abs(dy)*2){
+      var overlay=document.getElementById("print-overlay");
+      if(overlay){closePrintOverlay();return;}
+      if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}
+    }
+  },{passive:true});
+})();
 
 syncVis();
 showLoading();
