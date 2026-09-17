@@ -157,34 +157,40 @@ function bp(id,s){var r=RG[s]||"ka";return (RT[r]||RT.ka)[id]||0;}
 function fmt(n){return Math.round(n||0).toLocaleString("ja-JP");}
 
 var PD=[
-  {id:"rice",n:"米",u:"袋",sp:21500,tx:0.08,v:true,co:"tanba",ings:[{id:1,n:"米（仕入れ）",q:1,u:"袋",c:18000}]},
-  {id:"seimaihi",n:"精米代",u:"回",sp:1000,tx:0.10,v:true,co:"tanba",ings:[{id:1,n:"精米加工費",q:1,u:"回",c:700}]},
-  {id:"potato",n:"ポテトサラダ",u:"kg",sp:1400,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"ジャガイモ",q:667,u:"g",c:0.3},{id:2,n:"マヨネーズ",q:100,u:"g",c:0.5},{id:3,n:"塩・調味料",q:1,u:"式",c:30},{id:4,n:"人件費",q:1,u:"式",c:200},{id:5,n:"ガス代",q:1,u:"式",c:50}]},
-  {id:"yam",n:"長いも",u:"本",sp:3000,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"長いも仕入れ",q:1,u:"本",c:1200}]},
-  {id:"mushroom",n:"椎茸小",u:"個",sp:30,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"椎茸仕入れ",q:1,u:"個",c:25}]},
-  {id:"cheese",n:"燻製チーズ",u:"個",sp:2400,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"チーズ仕入れ",q:1,u:"個",c:800}]},
-  {id:"oyster",n:"カキのオイル漬け",u:"個",sp:3000,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"牡蠣仕入れ",q:1,u:"個",c:2600}]},
-  {id:"shrimp",n:"むきエビ",u:"個",sp:40,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"エビ仕入れ",q:1,u:"個",c:20}]},
-  {id:"roastbeef",n:"ローストビーフ",u:"個",sp:4500,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"牛肉仕入れ",q:1,u:"個",c:2500},{id:2,n:"調味料",q:1,u:"式",c:100},{id:3,n:"人件費",q:1,u:"式",c:400}]},
-  {id:"daikon",n:"大根おろし",u:"パック",sp:600,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"大根仕入れ",q:1,u:"本",c:200},{id:2,n:"加工費",q:1,u:"式",c:50}]},
-  {id:"negi",n:"岩津ネギ",u:"本",sp:216,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"岩津ネギ仕入れ",q:1,u:"本",c:180}]},
-  {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600},{id:2,n:"調味料",q:1,u:"式",c:80},{id:3,n:"人件費",q:1,u:"式",c:120}]},
-  {id:"chestnut",n:"丹波栗渋皮煮",u:"個",sp:18000,tx:0.08,v:false,co:"tanno",ings:[{id:1,n:"丹波栗仕入れ",q:1,u:"個",c:7200}]}
+  // temp: "chilled"=チルド, "frozen"=冷凍, "ambient"=常温, "season"=時期による, "other"=その他手配
+  // lotSize: 1発注単位の数量, lotUnit: 発注単位の表示, minLot: 最低ロット数, dispUnit: 作業指示の表示単位
+  {id:"rice",n:"米",u:"袋",sp:21500,tx:0.08,v:true,co:"tanba",temp:"other",lotSize:1,lotUnit:"袋(30kg)",minLot:1,dispUnit:"袋",riceShip:true,ings:[{id:1,n:"米（仕入れ）",q:1,u:"袋",c:18000}]},
+  {id:"seimaihi",n:"精米代",u:"回",sp:1000,tx:0.10,v:true,co:"tanba",temp:"other",lotSize:1,lotUnit:"回",minLot:1,dispUnit:"回",ings:[{id:1,n:"精米加工費",q:1,u:"回",c:700}]},
+  {id:"potato",n:"ポテトサラダ",u:"発注",sp:4200,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:3,lotUnit:"発注(3kg)",minLot:1,dispUnit:"発注",ings:[{id:1,n:"ジャガイモ",q:2000,u:"g",c:0.3},{id:4,n:"人件費",q:1,u:"式",c:200}]},
+  {id:"yam",n:"長いも",u:"発注",sp:4500,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"発注(固形1.5kg)",minLot:1,dispUnit:"発注",ings:[{id:1,n:"長いも仕入れ",q:2,u:"本",c:1200}]},
+  {id:"mushroom",n:"椎茸小",u:"個",sp:30,tx:0.08,v:true,co:"tanno",temp:"season",tempNote:"夏:チルド / 冬:常温",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"椎茸仕入れ",q:1,u:"個",c:25}]},
+  {id:"cheese",n:"燻製チーズ",u:"個",sp:2400,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"燻製チーズ（加工済）",q:1,u:"個",c:800}]},
+  {id:"oyster",n:"カキのオイル漬け",u:"個",sp:3000,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"牡蠣仕入れ",q:1,u:"個",c:2600}]},
+  {id:"shrimp",n:"むきエビ",u:"個",sp:40,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"個",minLot:300,dispUnit:"個",ings:[{id:1,n:"エビ仕入れ",q:1,u:"個",c:20}]},
+  {id:"roastbeef",n:"ローストビーフ",u:"個",sp:4500,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"牛肉仕入れ",q:1,u:"個",c:2500}]},
+  {id:"daikon",n:"大根おろし",u:"パック",sp:600,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"パック",minLot:10,dispUnit:"パック",ings:[{id:1,n:"大根仕入れ",q:0.25,u:"本",c:200}]},
+  {id:"negi",n:"岩津ネギ",u:"発注",sp:2160,tx:0.08,v:true,co:"tanno",temp:"ambient",lotSize:10,lotUnit:"発注(10本)",minLot:1,dispUnit:"本",dispMult:10,ings:[{id:1,n:"岩津ネギ仕入れ",q:10,u:"本",c:180}]},
+  {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"パック",minLot:1,dispUnit:"パック",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600}]},
+  {id:"chestnut",n:"丹波栗渋皮煮",u:"個",sp:18000,tx:0.08,v:false,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"丹波栗仕入れ",q:1,u:"個",c:7200}]}
 ];
+
+// 温度帯ラベル
+var TEMP_LABEL={chilled:"❄️ チルド",frozen:"🧊 冷凍",ambient:"🌡 常温",season:"🌤 時期による",other:"🚚 別手配"};
+var TEMP_COLOR={chilled:"#0ea5e9",frozen:"#6366f1",ambient:"#f59e0b",season:"#10b981",other:"#6b7280"};
 // 商品→在庫の対応マップ（1発注単位あたりの使用量）
 var STOCK_MAP={
-  rice:    [{sid:"s_rice",   qty:1}],
-  potato:  [{sid:"s_potato", qty:667},{sid:"s_mayo",qty:100}],
-  yam:     [{sid:"s_yam",    qty:1}],
-  mushroom:[{sid:"s_mushroom",qty:1}],
-  cheese:  [{sid:"raw_cheese",qty:1}],
-  oyster:  [{sid:"s_oyster", qty:1}],
-  shrimp:  [{sid:"raw_shrimp",qty:1}],
-  roastbeef:[{sid:"s_beef",  qty:1}],
-  daikon:  [{sid:"s_daikon", qty:0.25}],
-  negi:    [{sid:"s_negi",   qty:1}],
-  gyu:     [{sid:"s_gyusuji",qty:1}],
-  chestnut:[{sid:"s_chestnut",qty:1}]
+  rice:     [{sid:"s_rice",     qty:1}],
+  potato:   [{sid:"s_potato",   qty:3}],      // 1発注=3kg
+  yam:      [{sid:"s_yam",      qty:2}],      // 1発注=長いも2本
+  mushroom: [{sid:"s_mushroom", qty:1}],
+  cheese:   [{sid:"proc_cheese",qty:1}],      // 燻製済みチーズから出庫
+  oyster:   [{sid:"s_oyster",   qty:1}],
+  shrimp:   [{sid:"proc_shrimp",qty:1}],      // 加工済みエビから出庫
+  roastbeef:[{sid:"s_beef",     qty:1}],
+  daikon:   [{sid:"s_daikon",   qty:0.25}],
+  negi:     [{sid:"s_negi",     qty:10}],     // 1発注=10本
+  gyu:      [{sid:"s_gyusuji",  qty:1}],
+  chestnut: []
 };
 
 // 在庫IDから在庫オブジェクトを取得
@@ -230,19 +236,19 @@ function pu(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].u;}re
 function gc(p){if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
 
 var STOCK=[
-  {id:"s_rice",n:"米",type:"raw",cat:"other",u:"袋",stock:8,minStock:5,weeklyNeed:6,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
-  {id:"s_potato",n:"ジャガイモ",type:"ingredient",cat:"fresh",u:"g",stock:5000,minStock:2000,weeklyNeed:4000,unitCost:0.3,linked:["ジャガイモ"],linkedPid:"potato",mto:true},
-  {id:"s_mayo",n:"マヨネーズ",type:"ingredient",cat:"fresh",u:"g",stock:1500,minStock:500,weeklyNeed:1000,unitCost:0.5,linked:["マヨネーズ"],linkedPid:"potato",mto:true},
-  {id:"s_yam",n:"長いも",type:"raw",cat:"fresh",u:"本",stock:10,minStock:5,weeklyNeed:8,unitCost:1200,linked:["長いも仕入れ"],linkedPid:"yam"},
-  {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:2000,minStock:500,weeklyNeed:1500,unitCost:25,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
-  {id:"raw_cheese",n:"チーズ原材料",type:"raw",cat:"frozen",u:"個",stock:30,minStock:15,weeklyNeed:20,unitCost:400,linked:["チーズ仕入れ"],linkedPid:"cheese"},
-  {id:"s_oyster",n:"牡蠣（冷凍）",type:"raw",cat:"frozen",u:"個",stock:40,minStock:15,weeklyNeed:30,unitCost:2600,linked:["牡蠣仕入れ"],linkedPid:"oyster"},
+  {id:"s_rice",n:"米",type:"raw",cat:"other",u:"袋",stock:0,minStock:3,weeklyNeed:0,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
+  {id:"s_potato",n:"ジャガイモ",type:"ingredient",cat:"fresh",u:"kg",stock:10,minStock:3,weeklyNeed:0,unitCost:0.3,linked:["ジャガイモ"],linkedPid:"potato"},
+  {id:"s_yam",n:"長いも",type:"raw",cat:"fresh",u:"本",stock:0,minStock:5,weeklyNeed:0,unitCost:1200,linked:["長いも仕入れ"],linkedPid:"yam"},
+  {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:0,minStock:500,weeklyNeed:0,unitCost:25,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
+  {id:"raw_cheese",n:"チーズ原材料（燻製前）",type:"raw",cat:"frozen",u:"個",stock:0,minStock:10,weeklyNeed:0,unitCost:400,linked:[],linkedPid:null},
+  {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:10,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
+  {id:"s_oyster",n:"牡蠣（冷凍）",type:"raw",cat:"frozen",u:"個",stock:0,minStock:15,weeklyNeed:0,unitCost:2600,linked:["牡蠣仕入れ"],linkedPid:"oyster"},
   {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:2,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
-  {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"尾",stock:0,minStock:600,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
-  {id:"s_beef",n:"牛肉",type:"raw",cat:"frozen",u:"個",stock:30,minStock:15,weeklyNeed:20,unitCost:2500,linked:["牛肉仕入れ"],linkedPid:"roastbeef"},
-  {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"パック",stock:20,minStock:10,weeklyNeed:15,unitCost:600,linked:["牛すじ仕入れ"],linkedPid:"gyu"},
-  {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"本",stock:15,minStock:8,weeklyNeed:10,unitCost:200,linked:["大根仕入れ"],linkedPid:"daikon"},
-  {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:50,minStock:30,weeklyNeed:40,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
+  {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"個",stock:0,minStock:300,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
+  {id:"s_beef",n:"牛肉",type:"raw",cat:"frozen",u:"個",stock:0,minStock:10,weeklyNeed:0,unitCost:2500,linked:["牛肉仕入れ"],linkedPid:"roastbeef"},
+  {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"パック",stock:0,minStock:10,weeklyNeed:0,unitCost:600,linked:["牛すじ仕入れ"],linkedPid:"gyu"},
+  {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"本",stock:0,minStock:5,weeklyNeed:0,unitCost:200,linked:["大根仕入れ"],linkedPid:"daikon"},
+  {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:0,minStock:20,weeklyNeed:0,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
   {id:"bx_cool140",n:"段ボール クール140",type:"box",cat:"box",u:"枚",stock:20,minStock:10,unitCost:0,linked:[],boxId:"cool140"},
   {id:"bx_cool100",n:"段ボール クール100",type:"box",cat:"box",u:"枚",stock:15,minStock:10,unitCost:0,linked:[],boxId:"cool100"},
   {id:"bx_land140",n:"段ボール 陸便140",type:"box",cat:"box",u:"枚",stock:10,minStock:5,unitCost:0,linked:[],boxId:"land140"},
@@ -253,7 +259,7 @@ var OR=[];
 
 var SLOG=[];
 var A={user:null,tab:"order",modal:null,chk:{},bct:{},cst:{},eqt:{},ico:"tanba",ist:"all",imn:"2026-04",hf:"all",stCat:"all",dashM:"2026-04",woDate:"",rpM:"2026-04",rpSt:"all",rpRg:"all"};
-var OF={s:"",q:{},done:false};
+var OF={s:"",q:{},done:false,tanto:"",stockAlerts:[]};
 var ME=null,SE=null;
 var INC=500;
 var TAB_HIST=[];
@@ -467,7 +473,7 @@ function rOrder(){
   if(OF.done){
     var h='<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🎉</div>';
     h+='<div style="font-size:20px;font-weight:700;color:#16a34a;margin-bottom:8px">発注完了しました！</div>';
-    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span></div>';
+    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span>'+( OF.tanto?'<br><span style="font-size:12px">担当者：'+OF.tanto+'</span>':"")+"</div>";
     // 在庫アラート表示
     var alerts=OF.stockAlerts||[];
     if(alerts.length>0){
@@ -497,16 +503,27 @@ function rOrder(){
     h+='<span style="font-weight:600;color:#1e40af">🏪 '+OF.s+'</span>';
     h+='<span style="color:#6b7280;font-size:12px;margin-left:8px">'+(RL[RG[OF.s]||"ka"]||"")+'</span></div>';
   }
+  // 担当者欄
+  h+='<div class="card"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:5px">担当者名</label>';
+  h+='<input type="text" value="'+OF.tanto+'" placeholder="例：龍之輔" oninput="OF.tanto=this.value" style="font-size:15px"></div>';
   h+='<div class="card"><div style="font-weight:600;margin-bottom:12px">商品・数量</div>';
   for(var i=0;i<ps.length;i++){
     var p=ps[i];var q=OF.q[p.id]||0;
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(q>0?"#eff6ff":"#f8fafc")+';border-radius:8px;border:1px solid '+(q>0?"#93c5fd":"#e2e8f0")+';margin-bottom:7px">';
+    var tl=TEMP_LABEL[p.temp]||"";var tc=TEMP_COLOR[p.temp]||"#6b7280";
+    var minLot=p.minLot||1;
+    h+='<div style="padding:10px 12px;background:'+(q>0?"#eff6ff":"#f8fafc")+';border-radius:8px;border:1px solid '+(q>0?"#93c5fd":"#e2e8f0")+';margin-bottom:7px">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
     h+='<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">'+p.n+'</div>';
-    h+='<div style="font-size:11px;color:#6b7280">'+p.u+'単位　税'+Math.round(p.tx*100)+'%</div></div>';
-    h+='<button style="width:34px;height:34px;border-radius:6px;font-size:18px;padding:0" onclick="setQ(\''+p.id+'\',-1)">−</button>';
-    h+='<input type="number" style="width:56px;text-align:center;padding:6px 4px;font-size:15px" value="'+(q||"")+'" placeholder="0" inputmode="numeric" oninput="OF.q[\''+p.id+'\']=parseInt(this.value)||0">';
-    h+='<button style="width:34px;height:34px;border-radius:6px;font-size:18px;padding:0;background:#1e3a6e;color:#fff;border:none" onclick="setQ(\''+p.id+'\',1)">＋</button>';
-    h+='<span style="font-size:11px;color:#6b7280;width:32px;flex-shrink:0">'+p.u+'</span></div>';
+    h+='<div style="font-size:11px;color:#6b7280">'+p.lotUnit+'　税'+Math.round(p.tx*100)+'%'+(p.tempNote?' ／ '+p.tempNote:"")+'</div></div>';
+    h+='<span style="background:'+tc+'20;color:'+tc+';border:1px solid '+tc+'60;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap">'+tl+'</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:8px">';
+    h+='<button style="width:36px;height:36px;border-radius:6px;font-size:20px;padding:0;flex-shrink:0" onclick="setQ(\''+p.id+'\',-1)">−</button>';
+    h+='<input type="number" style="flex:1;text-align:center;padding:7px 4px;font-size:16px" value="'+(q||"")+'" placeholder="0" inputmode="numeric" oninput="OF.q[\''+p.id+'\']=parseInt(this.value)||0">';
+    h+='<button style="width:36px;height:36px;border-radius:6px;font-size:20px;padding:0;background:#1e3a6e;color:#fff;border:none;flex-shrink:0" onclick="setQ(\''+p.id+'\',1)">＋</button>';
+    h+='<span style="font-size:11px;color:#6b7280;width:50px;flex-shrink:0;text-align:right">'+p.lotUnit+'</span></div>';
+    if(minLot>1&&q>0&&q<minLot)h+='<div style="font-size:11px;color:#dc2626;margin-top:4px">⚠️ 最低ロット：'+minLot+p.u+'以上</div>';
+    if(p.riceShip)h+='<div style="font-size:11px;color:#6b7280;margin-top:4px">🚚 但馬米穀が発送します（自社発送なし）</div>';
+    h+='</div>';
   }
   h+='</div>';
   var hasItem=false;for(var k in OF.q){if(OF.q[k]>0){hasItem=true;break;}}
@@ -534,10 +551,10 @@ function submitOrder(){
   OR=newOR;
   var newOrder={id:Date.now(),s:OF.s,d:new Date().toISOString().slice(0,10),it:it,bx:{},st:"pending",sl:[]};
   OR.unshift(newOrder);
-  // 在庫を自動減算
+  // 在庫を自動減算（管理者のみアラートを渡す）
   var stockAlerts=deductStockByOrder(it);
   OF.done=true;
-  OF.stockAlerts=stockAlerts;
+  OF.stockAlerts=(A.user.r==="admin"?stockAlerts:[]);
   re();
   saveOrder(newOrder,null);
   for(var i=0;i<toDelete.length;i++){deleteOrder(toDelete[i],null);}
@@ -605,7 +622,20 @@ function rCheck(){
   h+='<div style="font-size:13px;color:#6b7280;margin-bottom:14px">商品確認 → 段ボール選択 → 出荷完了</div>';
   if(A.justShipped){
     var jo=null;for(var i=0;i<OR.length;i++){if(OR[i].id===A.justShipped){jo=OR[i];break;}}
-    if(jo)h+='<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin-bottom:14px"><div style="font-weight:700;color:#166534">'+jo.s+'　出荷完了！</div><div style="font-size:12px;color:#166534;margin-top:2px">発送伝票は「📋 履歴」タブからいつでも登録できます</div></div>';
+    if(jo){
+      h+='<div style="background:#dcfce7;border:1px solid #86efac;border-radius:12px;padding:14px 16px;margin-bottom:14px">';
+      h+='<div style="font-weight:700;color:#166534;font-size:15px;margin-bottom:6px">✅ '+jo.s+'　出荷完了！</div>';
+      h+='<div style="font-size:12px;color:#166534;margin-bottom:10px">続けて発送伝票の写真を登録できます</div>';
+      h+='<label style="display:block;background:#fff;border:2px dashed #86efac;border-radius:8px;padding:12px;text-align:center;cursor:pointer">';
+      h+='<div style="font-size:22px;margin-bottom:4px">📷</div>';
+      h+='<div style="font-size:13px;font-weight:600;color:#166534">伝票写真を撮影・選択</div>';
+      h+='<div style="font-size:11px;color:#6b7280;margin-top:2px">タップしてカメラまたはフォトライブラリから</div>';
+      h+='<input type="file" accept="image/*" multiple style="display:none" onchange="addSlipPhotosQuick('+jo.id+',this)">';
+      h+='</label>';
+      if(jo.sl&&jo.sl.length>0){h+='<div style="margin-top:8px;font-size:12px;color:#166534;font-weight:600">登録済み：'+jo.sl.length+'枚 ✓</div>';}
+      h+='<div style="font-size:11px;color:#6b7280;margin-top:8px">💡 「📋 履歴」タブからも後で追加できます</div>';
+      h+='</div>';
+    }
   }
   h+='<div class="g2" style="margin-bottom:14px">';
   h+='<div class="sc"><div style="font-size:22px;font-weight:700;color:#ea580c">'+pending.length+'</div><div style="font-size:11px;color:#6b7280">未出荷</div></div>';
@@ -616,8 +646,14 @@ function rCheck(){
 }
 function rCheckOrder(o){
   var its=[];var pids=Object.keys(o.it);for(var i=0;i<pids.length;i++)its.push({pid:pids[i],q:o.it[pids[i]]});
-  var ck=0;for(var i=0;i<its.length;i++){if(A.chk[o.id+its[i].pid])ck++;}
-  var ok=ck===its.length;
+  var ck=0;var nonRice=0;
+  for(var i=0;i<its.length;i++){
+    var _pp=null;for(var j=0;j<PD.length;j++){if(PD[j].id===its[i].pid){_pp=PD[j];break;}}
+    if(_pp&&_pp.riceShip)continue; // 米は自動チェック
+    nonRice++;
+    if(A.chk[o.id+its[i].pid])ck++;
+  }
+  var ok=ck===nonRice;
   var step=A.cst[o.id]||"items";
   var bc=A.bct[o.id]||{cool140:0,cool100:0,land140:0,land100:0};
   var tb=0;var bids=Object.keys(bc);for(var i=0;i<bids.length;i++)tb+=bc[bids[i]]||0;
@@ -631,10 +667,23 @@ function rCheckOrder(o){
     h+='<span style="font-weight:600">商品を確認する</span><span style="margin-left:auto;font-size:12px;color:#6b7280">'+ck+'/'+its.length+'</span></div>';
     for(var i=0;i<its.length;i++){
       var pid=its[i].pid,q=its[i].q,checked=A.chk[o.id+pid];
-      h+='<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:'+(checked?"#f0fdf4":"#f8fafc")+';border-radius:8px;border:1px solid '+(checked?"#86efac":"#e2e8f0")+';cursor:pointer">';
-      h+='<input type="checkbox" '+(checked?"checked":"")+' style="width:18px;height:18px;accent-color:#16a34a" onchange="toggleCheck(\''+o.id+'\',\''+pid+'\',this.checked)">';
-      h+='<span style="flex:1;font-weight:600;text-decoration:'+(checked?"line-through":"none")+';color:'+(checked?"#6b7280":"#111")+'">'+pn(pid)+'</span>';
-      h+='<span style="font-weight:700;color:'+(checked?"#16a34a":"#1e40af")+'">'+q+' '+pu(pid)+'</span></label>';
+      var pp=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pid){pp=PD[j];break;}}
+      var tl=pp?TEMP_LABEL[pp.temp]||"":"";var tc=pp?TEMP_COLOR[pp.temp]||"#6b7280":"#6b7280";
+      var isRice=pp&&pp.riceShip;
+      // 米は別手配なのでチェック不要とする（グレー表示）
+      if(isRice){
+        h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;opacity:0.6">';
+        h+='<div style="width:18px;height:18px;border-radius:3px;background:#e2e8f0;flex-shrink:0"></div>';
+        h+='<span style="flex:1;font-weight:600;color:#6b7280;text-decoration:line-through">'+pn(pid)+'</span>';
+        h+='<span style="font-size:10px;color:#6b7280;background:#f1f5f9;padding:2px 7px;border-radius:20px">🚚 但馬米穀手配</span>';
+        h+='<span style="font-weight:700;color:#6b7280">'+q+' '+pu(pid)+'</span></div>';
+      } else {
+        h+='<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:'+(checked?"#f0fdf4":"#f8fafc")+';border-radius:8px;border:1px solid '+(checked?"#86efac":"#e2e8f0")+';cursor:pointer">';
+        h+='<input type="checkbox" '+(checked?"checked":"")+' style="width:18px;height:18px;accent-color:#16a34a" onchange="toggleCheck(\''+o.id+'\',\''+pid+'\',this.checked)">';
+        h+='<span style="flex:1;font-weight:600;text-decoration:'+(checked?"line-through":"none")+';color:'+(checked?"#6b7280":"#111")+'">'+pn(pid)+'</span>';
+        if(tl)h+='<span style="font-size:10px;background:'+tc+'15;color:'+tc+';border:1px solid '+tc+'40;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0">'+tl+'</span>';
+        h+='<span style="font-weight:700;color:'+(checked?"#16a34a":"#1e40af")+';flex-shrink:0">'+q+' '+pu(pid)+'</span></label>';
+      }
     }
     h+='<button '+(ok?'style="background:#1e3a6e;color:#fff;border:none;width:100%;padding:11px;border-radius:8px;margin-top:4px"':'disabled style="width:100%;padding:11px;border-radius:8px;margin-top:4px;opacity:0.35;cursor:not-allowed"')+' onclick="'+(ok?"goBoxStep("+o.id+")":"")+'">';
     h+=(ok?"次へ：段ボールを選択 →":"残り "+(its.length-ck)+" 品の確認が必要です")+'</button>';
@@ -678,10 +727,10 @@ function setBox(oid,bid,d){if(!A.bct[oid])A.bct[oid]={cool140:0,cool100:0,land14
 function markShipped(oid){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
   if(o){o.st="shipped";o.bx=A.bct[oid]||{};var log=deductStock(o);o.stockLog=log;}
-  A.justShipped=oid;A.tab="check";re();
+  A.justShipped=oid;A.justShippedOrder=o;A.tab="check";re();
   // Supabaseに出荷完了を反映
   if(o)updateOrder(o,null);
-  setTimeout(function(){A.justShipped=null;re();},4000);
+  setTimeout(function(){A.justShipped=null;A.justShippedOrder=null;re();},8000);
 }
 
 // ============================================================
@@ -759,14 +808,23 @@ function rWorkOrder(){
     var rowTotal=0;
     var bg=pi%2===0?"#fff":"#f8fafc";
     h+='<tr style="background:'+bg+'">';
-    h+='<td style="padding:8px 10px;font-weight:600;border:1px solid #e2e8f0;font-size:12px">'+(p?p.n:pid)+'<span style="font-size:10px;color:#6b7280;margin-left:3px">'+(p?p.u:"")+'</span></td>';
+    var tl2=p?TEMP_LABEL[p.temp]||"":"";var tc2=p?TEMP_COLOR[p.temp]||"#6b7280":"#6b7280";
+    var dispU2=p&&p.dispUnit?p.dispUnit:p?p.u:"";
+    h+='<td style="padding:8px 10px;font-weight:600;border:1px solid #e2e8f0;font-size:12px">'+(p?p.n:pid);
+    if(tl2)h+='<span style="background:'+tc2+'15;color:'+tc2+';border:1px solid '+tc2+'40;padding:1px 5px;border-radius:10px;font-size:9px;margin-left:4px;font-weight:400">'+tl2+'</span>';
+    h+='<br><span style="font-size:10px;color:#6b7280;font-weight:400">'+dispU2+'単位</span></td>';
     for(var si=0;si<pending.length;si++){
       var qty=pending[si].it[pid]||0;
       rowTotal+=qty;
-      h+='<td style="padding:8px 6px;text-align:center;border:1px solid #e2e8f0;font-size:14px;font-weight:'+(qty>0?"700":"400")+';color:'+(qty>0?"#1e3a6e":"#d1d5db")+'">';
-      h+=(qty>0?qty:"−")+'</td>';
+      // 表示数量を実数に変換（ネギ:×10本、など）
+    var dispQty=qty>0?(p&&p.dispMult?qty*p.dispMult:qty):0;
+    h+='<td style="padding:8px 6px;text-align:center;border:1px solid #e2e8f0;font-size:14px;font-weight:'+(qty>0?"700":"400")+';color:'+(qty>0?"#1e3a6e":"#d1d5db")+'">';
+    h+=(qty>0?dispQty:"−")+'</td>';
     }
-    h+='<td style="padding:8px 8px;text-align:center;border:1px solid #e2e8f0;font-size:15px;font-weight:700;color:#1e3a6e;background:#eff6ff">'+rowTotal+'</td>';
+    // 合計も実数変換
+    var dispTotal=p&&p.dispMult?rowTotal*p.dispMult:rowTotal;
+    var dispU=p&&p.dispUnit?p.dispUnit:"";
+    h+='<td style="padding:8px 8px;text-align:center;border:1px solid #e2e8f0;font-size:15px;font-weight:700;color:#1e3a6e;background:#eff6ff">'+dispTotal+(dispU?'<span style="font-size:10px;color:#6b7280;margin-left:2px">'+dispU+'</span>':"")+'</td>';
     h+='</tr>';
   }
   // 確認チェック行
@@ -1029,6 +1087,24 @@ function rStock(){
     h+='<button onclick="recvSt(\''+s.id+'\',\'bxr_\')" style="padding:5px 10px;font-size:11px;background:#92400e;color:#fff;border:none;border-radius:6px;flex-shrink:0">入庫</button></div></div>';
   }
   h+='</div></div>';
+  // 燻製チーズ加工処理ブロック
+  var rawCh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="raw_cheese"){rawCh=STOCK[i];break;}}
+  var procCh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_cheese"){procCh=STOCK[i];break;}}
+  h+='<div class="card" style="border-left:4px solid #b45309;margin-bottom:12px">';
+  h+='<div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#b45309">🧀 燻製チーズ 加工処理</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:10px">';
+  h+='<div style="flex:1;background:#fef3c7;border-radius:8px;padding:10px;text-align:center">';
+  h+='<div style="font-size:11px;color:#92400e;margin-bottom:3px">チーズ原材料（燻製前）</div>';
+  h+='<div style="font-size:22px;font-weight:700;color:#b45309">'+(rawCh?rawCh.stock:0)+'<span style="font-size:11px">個</span></div></div>';
+  h+='<div style="display:flex;align-items:center;font-size:22px;color:#b45309">→</div>';
+  h+='<div style="flex:1;background:#fff7ed;border-radius:8px;padding:10px;text-align:center">';
+  h+='<div style="font-size:11px;color:#92400e;margin-bottom:3px">燻製チーズ（加工済）</div>';
+  h+='<div style="font-size:22px;font-weight:700;color:#b45309">'+(procCh?procCh.stock:0)+'<span style="font-size:11px">個</span></div></div></div>';
+  h+='<div style="display:flex;gap:8px;align-items:center">';
+  h+='<input type="number" id="cheese_proc" placeholder="加工する個数" style="flex:1;padding:8px 10px" inputmode="numeric">';
+  h+='<button onclick="procCheese()" style="padding:9px 14px;background:#b45309;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
+  h+='</div>';
+
   // 冷凍エビ手動加工処理ブロック
   var rawSh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="raw_shrimp"){rawSh=STOCK[i];break;}}
   var procSh=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_shrimp"){procSh=STOCK[i];break;}}
@@ -1275,6 +1351,20 @@ function rNyuko(){
   return h;
 }
 
+function procCheese(){
+  var el=document.getElementById("cheese_proc");
+  var qty=parseFloat(el?el.value:0)||0;
+  if(!qty||qty<=0)return alert("加工する個数を入力してください");
+  var raw=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="raw_cheese"){raw=STOCK[i];break;}}
+  var proc=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_cheese"){proc=STOCK[i];break;}}
+  if(!raw||!proc)return alert("在庫データが見つかりません");
+  if(raw.stock<qty){if(!confirm("原材料在庫("+raw.stock+"個)より多い数量です。続けますか？"))return;}
+  raw.stock=Math.max(0,raw.stock-qty);
+  proc.stock+=qty;
+  alert("✅ 燻製チーズ加工完了！\n原材料 -"+qty+"個 → 燻製済み +"+qty+"個\n\n原材料残: "+raw.stock+"個\n燻製済み在庫: "+proc.stock+"個");
+  if(el)el.value="";
+  re();
+}
 function doNyuko(){
   var vis=[];for(var i=0;i<STOCK.length;i++){if(!STOCK[i]._hidden&&STOCK[i].type!=="box")vis.push(STOCK[i]);}
   var updated=[];
@@ -1366,6 +1456,22 @@ function upSt(id,f,v){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK
 function delSt(id){if(!confirm("削除しますか？"))return;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK.splice(i,1);break;}}cm();}
 function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)return;STOCK.push({id:"s_"+Date.now(),n:n,type:"raw",cat:document.getElementById("sn_c").value,u:document.getElementById("sn_u").value||"個",stock:parseFloat(document.getElementById("sn_s").value)||0,minStock:parseFloat(document.getElementById("sn_m").value)||5,weeklyNeed:parseFloat(document.getElementById("sn_w").value)||0,unitCost:0,linked:[]});cm();}
 function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}if(!o)return;if(!o.sl)o.sl=[];var files=Array.from(input.files);var loaded=0;files.forEach(function(f){var r=new FileReader();r.onload=function(e){o.sl.push(e.target.result);loaded++;if(loaded===files.length){re();updateOrder(o,null);}};r.readAsDataURL(f);});}
+function addSlipPhotosQuick(oid,input){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
+  if(!o)return;if(!o.sl)o.sl=[];
+  var files=Array.from(input.files);var loaded=0;
+  files.forEach(function(f){
+    var r=new FileReader();
+    r.onload=function(e){
+      o.sl.push(e.target.result);loaded++;
+      if(loaded===files.length){
+        alert("✅ 写真を"+loaded+"枚登録しました！\n「📋 履歴」タブからも確認できます。");
+        updateOrder(o,null);re();
+      }
+    };
+    r.readAsDataURL(f);
+  });
+}
 function viewPhoto(oid,idx){A.modal={type:"ph",oid:oid,idx:idx};re();}
 
 function printWorkOrder(){
