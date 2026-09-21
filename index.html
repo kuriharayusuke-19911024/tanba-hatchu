@@ -60,6 +60,17 @@ function supaFetch(method,path,body){
   return fetch(SUPA_URL+"/rest/v1/"+path,opts);
 }
 
+// GAS経由でLINEアラートを送信
+var GAS_URL = 'https://script.google.com/macros/s/AKfycby-PBNRsbp9sli9RFLzgjQ2oGeR89DMtZFAJIVUPkfeEHMOIKzAiM7TGOVeBYX6uaw1/exec';
+
+function sendLineAlert(message){
+  fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'alert',message:message})
+  }).catch(function(e){console.log('LINE alert error:',e);});
+}
+
 // 在庫データをSupabaseに保存
 function saveStockToCloud(){
   var items=[];
@@ -588,6 +599,16 @@ function submitOrder(){
   re();
   saveStockToCloud();
   saveOrder(newOrder,null);
+  // 在庫ゼロの食材はLINEに通知
+  if(A.user.r==="admin"&&stockAlerts.length>0){
+    var emptyItems=[];
+    for(var i=0;i<stockAlerts.length;i++){
+      if(stockAlerts[i].stock<=0)emptyItems.push(stockAlerts[i].n);
+    }
+    if(emptyItems.length>0){
+      sendLineAlert('[\u4e39\u8fb2\u98df\u54c1 \u5728\u5eab\u30a2\u30e9\u30fc\u30c8]\n\u4ee5\u4e0b\u306e\u98df\u6750\u306e\u5728\u5eab\u304c\u30bc\u30ed\u306b\u306a\u308a\u307e\u3057\u305f\uff01\n\n' + emptyItems.join('\n') + '\n\n\u3059\u3050\u5165\u5eab\u767b\u9332\u3092\u304a\u9858\u3044\u3057\u307e\u3059\u3002');
+    }
+  }
   for(var i=0;i<toDelete.length;i++){deleteOrder(toDelete[i],null);}
 }
 
