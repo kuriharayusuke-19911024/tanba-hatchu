@@ -223,8 +223,12 @@ var TEMP_COLOR={chilled:"#0ea5e9",frozen:"#6366f1",ambient:"#f59e0b",season:"#10
 // 商品→在庫の対応マップ（1発注単位あたりの使用量）
 var STOCK_MAP={
   rice:     [{sid:"s_rice",     qty:1}],
-  potato:   [{sid:"s_potato",   qty:3}],      // 1発注=3kg
-  yam:      [{sid:"s_yam",      qty:2}],      // 1発注=長いも2本
+  // ポテトサラダ 1発注=3kg（分量表より。ベーコンは廃止）
+  potato:   [{sid:"s_potato",qty:2.4},{sid:"s_cheese_g",qty:60},{sid:"s_egg",qty:3},{sid:"s_mayo",qty:0.3},
+             {sid:"s_crazysalt",qty:9},{sid:"s_salt",qty:12},{sid:"s_bpepper",qty:2},{sid:"s_ajinomoto",qty:15},
+             {sid:"s_sugar",qty:27},{sid:"s_vinegar",qty:27}],
+  // 長いもわさび漬け 1発注=1500g：長いも1.8kg・浅漬けの素500ml(1.8L本の0.28本)・粉わさび45g
+  yam:      [{sid:"s_yam",qty:2},{sid:"s_asazuke",qty:0.28},{sid:"s_wasabi",qty:0.045}],
   mushroom: [{sid:"s_mushroom", qty:20}],     // 1発注=20個
   cheese:   [{sid:"proc_cheese",qty:1}],      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
@@ -288,6 +292,14 @@ var STOCK=[
   {id:"s_mayo",n:"マヨネーズ（1kg入り）",type:"ingredient",cat:"other",u:"本",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_asazuke",n:"浅漬けの素（1.8L）",type:"ingredient",cat:"other",u:"本",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_wasabi",n:"粉わさび",type:"ingredient",cat:"other",u:"kg",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_cheese_g",n:"チーズ（ポテサラ用）",type:"ingredient",cat:"chilled",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_egg",n:"卵",type:"ingredient",cat:"chilled",u:"個",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_crazysalt",n:"クレイジーソルト",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_salt",n:"塩",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_bpepper",n:"ブラックペッパー",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_ajinomoto",n:"味の素",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_sugar",n:"砂糖",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_vinegar",n:"酢",type:"ingredient",cat:"other",u:"g",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:0,minStock:20,weeklyNeed:0,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
   {id:"bx_cool140",n:"段ボール クール140",type:"box",cat:"box",u:"枚",stock:20,minStock:10,unitCost:0,linked:[],boxId:"cool140"},
   {id:"bx_cool100",n:"段ボール クール100",type:"box",cat:"box",u:"枚",stock:15,minStock:10,unitCost:0,linked:[],boxId:"cool100"},
