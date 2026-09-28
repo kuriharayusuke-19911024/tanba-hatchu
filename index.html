@@ -206,9 +206,9 @@ var PD=[
   // lotSize: 1発注単位の数量, lotUnit: 発注単位の表示, minLot: 最低ロット数, dispUnit: 作業指示の表示単位
   {id:"rice",n:"米",u:"袋",sp:21500,tx:0.08,v:true,co:"tanba",temp:"other",lotSize:1,lotUnit:"袋(30kg)",minLot:1,dispUnit:"袋",riceShip:true,ings:[{id:1,n:"米（仕入れ）",q:1,u:"袋",c:18000}]},
   {id:"seimaihi",n:"精米代",u:"回",sp:1000,tx:0.10,v:true,co:"tanba",temp:"other",lotSize:1,lotUnit:"回",minLot:1,dispUnit:"回",ings:[{id:1,n:"精米加工費",q:1,u:"回",c:700}]},
-  {id:"potato",n:"ポテトサラダ",u:"発注",sp:4200,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:3,lotUnit:"発注(3kg)",minLot:1,dispUnit:"発注",ings:[{id:1,n:"ジャガイモ",q:2000,u:"g",c:0.3},{id:4,n:"人件費",q:1,u:"式",c:200}]},
+  {id:"potato",n:"ポテトサラダ",u:"発注",sp:4200,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:3,lotUnit:"発注(3kg・1パック)",minLot:1,dispUnit:"発注",ings:[{id:1,n:"ジャガイモ",q:2000,u:"g",c:0.3},{id:4,n:"人件費",q:1,u:"式",c:200}]},
   {id:"yam",n:"長いも",u:"発注",sp:4500,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"発注(固形1.5kg)",minLot:1,dispUnit:"発注",ings:[{id:1,n:"長いも仕入れ",q:2,u:"本",c:1200}]},
-  {id:"mushroom",n:"椎茸小",u:"個",sp:30,tx:0.08,v:true,co:"tanno",temp:"season",tempNote:"夏:チルド / 冬:常温",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"椎茸仕入れ",q:1,u:"個",c:25}]},
+  {id:"mushroom",n:"椎茸小",u:"発注",sp:600,tx:0.08,v:true,co:"tanno",temp:"season",tempNote:"夏:チルド / 冬:常温",lotSize:20,lotUnit:"発注(20個)",minLot:1,dispUnit:"個",dispMult:20,ings:[{id:1,n:"椎茸仕入れ",q:20,u:"個",c:25}]},
   {id:"cheese",n:"燻製チーズ",u:"個",sp:2400,tx:0.08,v:true,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"燻製チーズ（加工済）",q:1,u:"個",c:800}]},
   {id:"shrimp",n:"むきエビ",u:"発注",sp:12000,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:300,lotUnit:"発注(300尾)",minLot:1,dispUnit:"尾",dispMult:300,ings:[{id:1,n:"エビ仕入れ",q:300,u:"尾",c:20}]},
   {id:"daikon",n:"大根おろし",u:"パック",sp:600,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"パック",minLot:10,dispUnit:"パック",ings:[{id:1,n:"大根仕入れ",q:0.25,u:"本",c:200}]},
@@ -225,7 +225,7 @@ var STOCK_MAP={
   rice:     [{sid:"s_rice",     qty:1}],
   potato:   [{sid:"s_potato",   qty:3}],      // 1発注=3kg
   yam:      [{sid:"s_yam",      qty:2}],      // 1発注=長いも2本
-  mushroom: [{sid:"s_mushroom", qty:1}],
+  mushroom: [{sid:"s_mushroom", qty:20}],     // 1発注=20個
   cheese:   [{sid:"proc_cheese",qty:1}],      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
   daikon:   [{sid:"s_daikon",   qty:0.25}],
