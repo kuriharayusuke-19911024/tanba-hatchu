@@ -226,17 +226,17 @@ var STOCK_MAP={
   // ポテトサラダ 1発注=3kg（分量表より。ベーコンは廃止）
   potato:   [{sid:"s_potato",qty:2.4},{sid:"s_cheese_g",qty:60},{sid:"s_egg",qty:3},{sid:"s_mayo",qty:0.3},
              {sid:"s_crazysalt",qty:9},{sid:"s_salt",qty:12},{sid:"s_bpepper",qty:2},{sid:"s_ajinomoto",qty:15},
-             {sid:"s_sugar",qty:27},{sid:"s_vinegar",qty:27}],
+             {sid:"s_sugar",qty:27},{sid:"s_vinegar",qty:27},{sid:"s_vacpack",qty:1}],
   // 長いもわさび漬け 1発注=1500g：長いも1.8kg・浅漬けの素500ml(1.8L本の0.28本)・粉わさび45g
-  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:0.28},{sid:"s_wasabi",qty:0.045}],
+  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:0.28},{sid:"s_wasabi",qty:0.045},{sid:"s_vacpack",qty:1}],
   mushroom: [{sid:"s_mushroom", qty:20}],     // 1発注=20個
-  cheese:   [{sid:"proc_cheese",qty:1}],      // 燻製済みチーズから出庫
+  cheese:   [{sid:"proc_cheese",qty:1},{sid:"s_vacpack",qty:0.25}], // 4個で真空パック1枚      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
-  daikon:   [{sid:"s_daikon",   qty:1}],       // 1パック(950g)=大根約1本
+  daikon:   [{sid:"s_daikon",   qty:1},{sid:"s_vacpack",qty:1}],       // 1パック(950g)=大根約1本
   negi:     [{sid:"s_negi",     qty:10}],     // 1発注=10本
   // 牛すじ煮込み：10kg仕込み1回分の使用量。1パックあたり = 下記 ÷ 在庫タブ「【設定】牛すじ10kg仕込みのパック数」
   gyu:      [{sid:"s_gyusuji",qty:10,batch:true},{sid:"s_aonegi",qty:5,batch:true},{sid:"s_ginger",qty:100,batch:true},{sid:"s_daikon_p",qty:0.5,batch:true},
-             {sid:"s_sake",qty:1400,batch:true},{sid:"s_mirin",qty:400,batch:true},{sid:"s_vinegar",qty:50,batch:true}],
+             {sid:"s_sake",qty:1400,batch:true},{sid:"s_mirin",qty:400,batch:true},{sid:"s_vinegar",qty:50,batch:true},{sid:"s_vacpack",qty:1}],
   chestnut: []
 };
 
