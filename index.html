@@ -284,14 +284,14 @@ function pu(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].u;}re
 function gc(p){if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
 
 var STOCK=[
-  {id:"s_rice",n:"米",type:"raw",cat:"other",u:"袋",stock:0,minStock:3,weeklyNeed:0,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
-  {id:"s_potato",n:"ジャガイモ",type:"ingredient",cat:"fresh",u:"kg",stock:10,minStock:3,weeklyNeed:0,unitCost:0.3,linked:["ジャガイモ"],linkedPid:"potato"},
+  {id:"s_rice",n:"米（但馬米穀在庫・管理外）",type:"raw",cat:"other",u:"袋",stock:0,minStock:0,_hidden:true,weeklyNeed:0,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
+  {id:"s_potato",n:"ジャガイモ",type:"ingredient",cat:"fresh",u:"kg",stock:10,minStock:50,weeklyNeed:0,unitCost:0.3,linked:["ジャガイモ"],linkedPid:"potato"},
   {id:"s_yam",n:"長いも（1箱10kg）",type:"raw",cat:"fresh",u:"kg",stock:0,minStock:30,weeklyNeed:0,unitCost:120,linked:["長いも仕入れ"],linkedPid:"yam"},
   {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:0,minStock:500,weeklyNeed:0,unitCost:25,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
-  {id:"raw_cheese",n:"チーズ原材料（燻製前）",type:"raw",cat:"frozen",u:"個",stock:0,minStock:10,weeklyNeed:0,unitCost:400,linked:[],linkedPid:null},
-  {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:10,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
-  {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:2,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
-  {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"個",stock:0,minStock:300,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
+  {id:"raw_cheese",n:"チーズ原材料（燻製前）",type:"raw",cat:"frozen",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:400,linked:[],linkedPid:null},
+  {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
+  {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:8,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
+  {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"尾",stock:0,minStock:3000,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
   {id:"s_mayo",n:"マヨネーズ（1kg入り）",type:"ingredient",cat:"other",u:"本",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_asazuke",n:"浅漬けの素（1.8L）",type:"ingredient",cat:"other",u:"本",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_wasabi",n:"粉わさび",type:"ingredient",cat:"other",u:"kg",stock:1,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
