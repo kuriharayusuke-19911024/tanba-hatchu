@@ -683,6 +683,10 @@ function rHist(){
     }
     if(!shipped&&(ia||o.s===A.user.s)){
       h+='<button onclick="openEO('+o.id+')" style="padding:6px 12px;font-size:12px;background:#fff7ed;border:1px solid #fdba74;color:#c2410c;border-radius:6px;white-space:nowrap">✏️ 数量を修正する</button>';
+      if(ia){
+        h+=' <button onclick="changeStore('+o.id+')" style="padding:6px 12px;font-size:12px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;border-radius:6px;white-space:nowrap">🏪 店舗名を変更</button>';
+        h+=' <button onclick="adminDeleteOrder('+o.id+')" style="padding:6px 12px;font-size:12px;background:#fff;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;white-space:nowrap">🗑 この発注を削除</button>';
+      }
     }
     if(shipped){
       var slLen=(o.sl||[]).length;
@@ -1632,6 +1636,26 @@ function saveEO(){
   updateOrder(o,null);
   cm();
   alert("✅ 発注内容を修正しました");
+}
+// 管理者：店舗名の変更・発注の削除（出荷前のみ）
+function changeStore(oid){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
+  if(!o||o.st!=="pending")return;
+  var list="";for(var i=0;i<ST.length;i++)list+=(i+1)+"：" +ST[i]+"\n";
+  var ans=prompt("変更先の店舗の番号を入力してください\n（現在：" +o.s+"）\n\n"+list);
+  if(ans===null)return;var n=parseInt(ans);
+  if(!(n>=1&&n<=ST.length))return alert("1〜"+ST.length+"の番号を入力してください");
+  o.s=ST[n-1];updateOrder(o,null);re();alert("✅ 店舗名を「"+o.s+"」に変更しました");
+}
+function adminDeleteOrder(oid){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
+  if(!o||o.st!=="pending")return;
+  if(!confirm("「"+o.s+"」の発注（"+o.d+"）を削除します。よろしいですか？\n※在庫は発注分を戻します"))return;
+  // 在庫を戻す
+  var it=o.it||{};var ks=Object.keys(it);
+  for(var i=0;i<ks.length;i++){var map=STOCK_MAP[ks[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st)continue;var use=map[j].qty*it[ks[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
+  for(var i=0;i<OR.length;i++){if(OR[i].id===oid){OR.splice(i,1);break;}}
+  saveStockToCloud();deleteOrder(oid,null);re();
 }
 function closePrintOverlay(){
   var o=document.getElementById("print-overlay");if(o)o.parentNode.removeChild(o);
