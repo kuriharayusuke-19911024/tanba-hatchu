@@ -56,6 +56,7 @@ var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 
 function supaFetch(method,path,body){
   var opts={method:method,headers:{"Content-Type":"application/json","apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}};
+  if(path.indexOf("on_conflict=")>=0)opts.headers["Prefer"]="resolution=merge-duplicates,return=minimal"; // 既存行は上書き（upsert）
   if(body)opts.body=JSON.stringify(body);
   return fetch(SUPA_URL+"/rest/v1/"+path,opts);
 }
@@ -80,7 +81,7 @@ function saveStockToCloud(){
   }
   for(var i=0;i<items.length;i++){
     (function(item){
-      supaFetch("POST","stock_items?on_conflict=id",item).catch(function(e){console.error("Stock save error",e);});
+      supaFetch("POST","stock_items?on_conflict=id",item).then(function(r){if(!r.ok)r.text().then(function(t){console.error("Stock save error",r.status,t);});}).catch(function(e){console.error("Stock save error",e);});
     })(items[i]);
   }
 }
