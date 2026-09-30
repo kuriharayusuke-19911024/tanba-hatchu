@@ -1580,7 +1580,9 @@ function doPrint(elId){
   // ボタンは .print-hide クラスで非表示にする（buttonタグ全体を消さない）
   var backBtn='<button class="back-overlay-btn" onclick="closePrintOverlay()" style="display:block;width:100%;padding:14px;background:#374151;color:#fff;border:none;border-radius:8px;font-size:16px;margin-bottom:16px;cursor:pointer">← アプリに戻る（スワイプでも戻れます）</button>';
   var printBtn='<button class="back-overlay-btn" onclick="window.print()" style="display:block;width:100%;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:16px;margin-top:16px;margin-bottom:8px;cursor:pointer">🖨 印刷 / PDF保存</button>';
-  overlay.innerHTML='<style>'+css+'@page{margin:12mm;size:A4}'
+  var pageCss=(elId==="woPrintArea")?'@page{margin:8mm;size:A4 landscape}':'@page{margin:12mm;size:A4}';
+  overlay.innerHTML='<style>'+css+pageCss
+    +'@media print{#print-overlay table{min-width:0!important;width:100%!important;table-layout:auto}#print-overlay th,#print-overlay td{min-width:0!important;padding:5px 4px!important;font-size:11px!important}#print-overlay [style*="overflow-x"]{overflow:visible!important}#print-overlay{width:100%!important;max-width:100%!important}}'
     +'@media print{.back-overlay-btn{display:none!important}.no-print{display:none!important}}'
     +'</style>'
     +'<div class="back-overlay-btn" style="display:flex;gap:8px;margin-bottom:12px">'
