@@ -282,6 +282,7 @@ function getStockAlerts(){
 
 function pn(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].n;}return id;}
 function pu(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].u;}return "";}
+function qd(id,q){var p=null;for(var i=0;i<PD.length;i++){if(PD[i].id===id){p=PD[i];break;}}if(!p)return q+"";if(p.dispMult&&p.dispUnit)return q+p.u+"（"+(q*p.dispMult)+p.dispUnit+"）";return q+" "+p.u;}
 function gc(p){if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
 
 var STOCK=[
@@ -666,7 +667,7 @@ function rHist(){
     h+='<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:'+(shipped?"#dcfce7":"#fef3c7")+';color:'+(shipped?"#166534":"#92400e")+'">'+(shipped?"✅ 出荷済":"⏳ 準備中")+'</span></div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px">';
     var pids=Object.keys(o.it);
-    for(var j=0;j<pids.length;j++)h+='<span style="background:#eff6ff;border:1px solid #93c5fd;border-radius:20px;padding:3px 10px;font-size:12px;color:#1e40af">'+pn(pids[j])+' <b>'+o.it[pids[j]]+pu(pids[j])+'</b></span>';
+    for(var j=0;j<pids.length;j++)h+='<span style="background:#eff6ff;border:1px solid #93c5fd;border-radius:20px;padding:3px 10px;font-size:12px;color:#1e40af">'+pn(pids[j])+' <b>'+qd(pids[j],o.it[pids[j]])+'</b></span>';
     h+='</div>';
     var bids=Object.keys(o.bx||{});var hasBx=false;for(var j=0;j<bids.length;j++){if(o.bx[bids[j]]>0){hasBx=true;break;}}
     if(hasBx){
@@ -760,13 +761,13 @@ function rCheckOrder(o){
         h+='<div style="width:18px;height:18px;border-radius:3px;background:#e2e8f0;flex-shrink:0"></div>';
         h+='<span style="flex:1;font-weight:600;color:#6b7280;text-decoration:line-through">'+pn(pid)+'</span>';
         h+='<span style="font-size:10px;color:#6b7280;background:#f1f5f9;padding:2px 7px;border-radius:20px">🚚 但馬米穀手配</span>';
-        h+='<span style="font-weight:700;color:#6b7280">'+q+' '+pu(pid)+'</span></div>';
+        h+='<span style="font-weight:700;color:#6b7280">'+qd(pid,q)+'</span></div>';
       } else {
         h+='<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:'+(checked?"#f0fdf4":"#f8fafc")+';border-radius:8px;border:1px solid '+(checked?"#86efac":"#e2e8f0")+';cursor:pointer">';
         h+='<input type="checkbox" '+(checked?"checked":"")+' style="width:18px;height:18px;accent-color:#16a34a" onchange="toggleCheck(\''+o.id+'\',\''+pid+'\',this.checked)">';
         h+='<span style="flex:1;font-weight:600;text-decoration:'+(checked?"line-through":"none")+';color:'+(checked?"#6b7280":"#111")+'">'+pn(pid)+'</span>';
         if(tl)h+='<span style="font-size:10px;background:'+tc+'15;color:'+tc+';border:1px solid '+tc+'40;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0">'+tl+'</span>';
-        h+='<span style="font-weight:700;color:'+(checked?"#16a34a":"#1e40af")+';flex-shrink:0">'+q+' '+pu(pid)+'</span></label>';
+        h+='<span style="font-weight:700;color:'+(checked?"#16a34a":"#1e40af")+';flex-shrink:0">'+qd(pid,q)+'</span></label>';
       }
     }
     h+='<button '+(ok?'style="background:#1e3a6e;color:#fff;border:none;width:100%;padding:11px;border-radius:8px;margin-top:4px"':'disabled style="width:100%;padding:11px;border-radius:8px;margin-top:4px;opacity:0.35;cursor:not-allowed"')+' onclick="'+(ok?"goBoxStep("+o.id+")":"")+'">';
