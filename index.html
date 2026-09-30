@@ -1287,7 +1287,7 @@ function recvSt(id,prefix){
   var el=document.getElementById(pfx+id)||document.getElementById("rcv_"+id);
   var q=parseFloat(el?el.value:0)||0;
   if(!q)return alert("入庫数を入力してください");
-  for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i].stock+=q;alert("✅ 入庫完了\n"+STOCK[i].n+" "+q+STOCK[i].u+"\n現在庫: "+STOCK[i].stock+STOCK[i].u);break;}}re();
+  for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i].stock=Math.round((STOCK[i].stock+q)*100)/100;alert("✅ 入庫完了\n"+STOCK[i].n+" "+q+STOCK[i].u+"\n現在庫: "+STOCK[i].stock+STOCK[i].u);break;}}saveStockToCloud();re();
 }
 
 // ============================================================
@@ -1461,7 +1461,7 @@ function doNyuko(){
   saveStockToCloud();
   cm();
 }
-function cm(){A.modal=null;re();}
+function cm(){var wasSE=A.modal&&A.modal.type==="se";A.modal=null;if(wasSE){clearTimeout(_stSaveT);saveStockToCloud();}re();}
 function rSlip(){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===A.modal.oid){o=OR[i];break;}}if(!o)return "";
   var sl=o.stockLog||[];
@@ -1532,7 +1532,9 @@ function removeIng(id){for(var i=0;i<ME.ings.length;i++){if(ME.ings[i].id===id){
 function addIng(){ME.ings.push({id:++INC,n:"",q:1,u:"個",c:0});re();}
 function saveME(){for(var i=0;i<PD.length;i++){if(PD[i].id===ME.id){PD[i]=JSON.parse(JSON.stringify(ME));break;}}ME=null;cm();}
 function addNewProd(){var n=document.getElementById("NN").value.trim();var u=document.getElementById("NU").value.trim()||"個";if(!n)return;PD.push({id:"c"+Date.now(),n:n,u:u,sp:0,tx:0.08,v:true,co:"tanno",ings:[]});cm();}
-function upSt(id,f,v){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;break;}}re();}
+var _stSaveT=null;
+function scheduleStockSave(){clearTimeout(_stSaveT);_stSaveT=setTimeout(saveStockToCloud,600);}
+function upSt(id,f,v){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;break;}}if(f==="stock")scheduleStockSave();re();}
 function delSt(id){if(!confirm("削除しますか？"))return;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK.splice(i,1);break;}}cm();}
 function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)return;STOCK.push({id:"s_"+Date.now(),n:n,type:"raw",cat:document.getElementById("sn_c").value,u:document.getElementById("sn_u").value||"個",stock:parseFloat(document.getElementById("sn_s").value)||0,minStock:parseFloat(document.getElementById("sn_m").value)||5,weeklyNeed:parseFloat(document.getElementById("sn_w").value)||0,unitCost:0,linked:[]});cm();}
 function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}if(!o)return;if(!o.sl)o.sl=[];var files=Array.from(input.files);var loaded=0;files.forEach(function(f){var r=new FileReader();r.onload=function(e){o.sl.push(e.target.result);loaded++;if(loaded===files.length){re();updateOrder(o,null);}};r.readAsDataURL(f);});}
