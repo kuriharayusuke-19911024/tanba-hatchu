@@ -1583,7 +1583,12 @@ function doPrint(elId){
   overlay.innerHTML='<style>'+css+'@page{margin:12mm;size:A4}'
     +'@media print{.back-overlay-btn{display:none!important}.no-print{display:none!important}}'
     +'</style>'
-    +backBtn+el.innerHTML+printBtn;
+    +'<div class="back-overlay-btn" style="display:flex;gap:8px;margin-bottom:12px">'
+    +'<button class="back-overlay-btn" onclick="closePrintOverlay()" style="flex:1;padding:14px;background:#374151;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer">← 戻る</button>'
+    +'<button class="back-overlay-btn" onclick="window.print()" style="flex:1;padding:14px;background:#1e3a6e;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">🖨 印刷 / PDF保存</button>'
+    +'</div>'
+    +'<div class="back-overlay-btn" style="font-size:12px;color:#6b7280;margin-bottom:12px">下がプレビューです。「印刷 / PDF保存」を押すと印刷画面が開きます（iPhoneは共有メニューから「PDFを保存」）</div>'
+    +el.innerHTML+printBtn;
   document.body.appendChild(overlay);
   document.body.classList.add("printing");
 }
