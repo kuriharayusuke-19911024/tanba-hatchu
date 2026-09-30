@@ -681,6 +681,9 @@ function rHist(){
       for(var j=0;j<o.sl.length;j++)h+='<img src="'+o.sl[j]+'" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer" onclick="viewPhoto('+o.id+','+j+')">';
       h+='</div></div>';
     }
+    if(!shipped&&(ia||o.s===A.user.s)){
+      h+='<button onclick="openEO('+o.id+')" style="padding:6px 12px;font-size:12px;background:#fff7ed;border:1px solid #fdba74;color:#c2410c;border-radius:6px;white-space:nowrap">✏️ 数量を修正する</button>';
+    }
     if(shipped){
       var slLen=(o.sl||[]).length;
       h+='<button onclick="A.modal={type:\'slip\',oid:'+o.id+'};re()" style="padding:6px 12px;font-size:12px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;border-radius:6px;white-space:nowrap">📷 '+(slLen>0?"伝票写真を追加・確認 ("+slLen+"枚)":"発送伝票を登録する")+'</button>';
@@ -1393,6 +1396,7 @@ function openME(id){ME=null;for(var i=0;i<PD.length;i++){if(PD[i].id===id){ME=JS
 // ============================================================
 function rModal(){
   if(A.modal.type==="slip")return rSlip();
+  if(A.modal.type==="eo")return rEO();
   if(A.modal.type==="me")return rME();
   if(A.modal.type==="ap")return rAP();
   if(A.modal.type==="ph")return rPH();
@@ -1578,6 +1582,56 @@ function doPrint(elId){
     +backBtn+el.innerHTML+printBtn;
   document.body.appendChild(overlay);
   document.body.classList.add("printing");
+}
+// ============================================================
+// 発注の数量修正（出荷前のみ・店舗自身または管理者）
+// ============================================================
+var EO=null;
+function openEO(oid){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
+  if(!o)return;if(o.st!=="pending")return alert("出荷済みの発注は修正できません。丹農食品までご連絡ください。");
+  var q={};var ks=Object.keys(o.it||{});for(var i=0;i<ks.length;i++)q[ks[i]]=o.it[ks[i]];
+  EO={oid:oid,q:q};A.modal={type:"eo"};re();
+}
+function eoSet(pid,d){EO.q[pid]=Math.max(0,(EO.q[pid]||0)+d);re();}
+function rEO(){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===EO.oid){o=OR[i];break;}}
+  if(!o){cm();return "";}
+  var ps=[];for(var i=0;i<PD.length;i++){if(PD[i].v&&(PD[i].co==="tanno"||PD[i].id==="rice"))ps.push(PD[i]);}
+  var h='<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto"><div class="mh"></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:15px;font-weight:700">✏️ 発注の数量修正</div><button onclick="cm()" style="background:none;border:none;font-size:22px;color:#6b7280">✕</button></div>';
+  h+='<div style="font-size:12px;color:#6b7280;margin-bottom:12px">'+o.s+'　'+o.d+'<br>数量を直して「修正を保存」を押してください（0にすると外れます）</div>';
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i];var q=EO.q[p.id]||0;
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(q>0?"#eff6ff":"#f8fafc")+';border:1px solid '+(q>0?"#93c5fd":"#e2e8f0")+';border-radius:8px;margin-bottom:6px">';
+    h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+p.n+'</div><div style="font-size:10px;color:#6b7280">'+p.lotUnit+'</div></div>';
+    h+='<button style="width:32px;height:32px;border-radius:6px;font-size:18px;padding:0;flex-shrink:0" onclick="eoSet(\''+p.id+'\',-1)">−</button>';
+    h+='<input type="number" value="'+(q||"")+'" placeholder="0" inputmode="numeric" style="width:56px;text-align:center;padding:6px 4px;font-size:15px" oninput="EO.q[\''+p.id+'\']=parseInt(this.value)||0">';
+    h+='<button style="width:32px;height:32px;border-radius:6px;font-size:18px;padding:0;background:#1e3a6e;color:#fff;border:none;flex-shrink:0" onclick="eoSet(\''+p.id+'\',1)">＋</button>';
+    h+='</div>';
+  }
+  h+='<div style="display:flex;gap:8px;margin-top:12px"><button class="bp" style="flex:1;padding:12px;font-size:14px" onclick="saveEO()">修正を保存 ✓</button><button style="flex:1;padding:12px" onclick="cm()">キャンセル</button></div>';
+  h+='</div></div>';
+  return h;
+}
+function saveEO(){
+  var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===EO.oid){o=OR[i];break;}}
+  if(!o)return cm();
+  var nit={};var ks=Object.keys(EO.q);var has=false;
+  for(var i=0;i<ks.length;i++){var v=parseInt(EO.q[ks[i]])||0;if(v>0){nit[ks[i]]=v;has=true;}}
+  if(!has)return alert("1品以上残してください（発注ごと取り消す場合は丹農食品までご連絡ください）");
+  // 在庫を差分で調整（増えた分を減算、減った分を戻す）
+  var oldIt=o.it||{};var allK={};for(var k in oldIt)allK[k]=1;for(var k in nit)allK[k]=1;
+  var dec={},inc={};
+  for(var k in allK){var d=(nit[k]||0)-(oldIt[k]||0);if(d>0)dec[k]=d;else if(d<0)inc[k]=-d;}
+  if(Object.keys(dec).length)deductStockByOrder(dec);
+  var incK=Object.keys(inc);
+  for(var i=0;i<incK.length;i++){var map=STOCK_MAP[incK[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st)continue;var use=map[j].qty*inc[incK[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
+  o.it=nit;
+  saveStockToCloud();
+  updateOrder(o,null);
+  cm();
+  alert("✅ 発注内容を修正しました");
 }
 function closePrintOverlay(){
   var o=document.getElementById("print-overlay");if(o)o.parentNode.removeChild(o);
