@@ -706,7 +706,7 @@ function rHist(){
 function rCheck(){
   var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">✅ 出荷チェックリスト</div>';
-  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:14px">商品確認 → 段ボール選択 → 出荷完了</div>';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:14px">チルド・常温と冷凍を別々に「商品確認 → 段ボール選択」→ 両方そろったら出荷完了</div>';
   if(A.justShipped){
     var jo=null;for(var i=0;i<OR.length;i++){if(OR[i].id===A.justShipped){jo=OR[i];break;}}
     if(jo){
@@ -732,88 +732,126 @@ function rCheck(){
   return h;
 }
 function rCheckOrder(o){
-  var its=[];var pids=Object.keys(o.it);for(var i=0;i<pids.length;i++)its.push({pid:pids[i],q:o.it[pids[i]]});
-  var ck=0;var nonRice=0;
-  for(var i=0;i<its.length;i++){
-    var _pp=null;for(var j=0;j<PD.length;j++){if(PD[j].id===its[i].pid){_pp=PD[j];break;}}
-    if(_pp&&_pp.riceShip)continue; // 米は自動チェック
-    nonRice++;
-    if(A.chk[o.id+its[i].pid])ck++;
+  // 商品を「冷凍以外（チルド・常温）」と「冷凍」の2グループに分け、各グループで 商品確認→段ボール を完結させる
+  var groups=[{k:"c",label:"チルド・常温（冷凍以外）",icon:"🧊",color:"#1e40af",its:[]},{k:"f",label:"冷凍",icon:"❄️",color:"#0e7490",its:[]}];
+  var pids=Object.keys(o.it);var riceIts=[];
+  for(var i=0;i<pids.length;i++){
+    var pid=pids[i];var pp=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pid){pp=PD[j];break;}}
+    var it={pid:pid,q:o.it[pid],pp:pp};
+    if(pp&&pp.riceShip){riceIts.push(it);continue;}
+    if(pp&&pp.temp==="frozen")groups[1].its.push(it);else groups[0].its.push(it);
   }
-  var ok=ck===nonRice;
-  var step=A.cst[o.id]||"items";
-  var bc=A.bct[o.id]||{cool140:0,cool100:0,land140:0,land100:0};
-  var tb=0;var bids=Object.keys(bc);for(var i=0;i<bids.length;i++)tb+=bc[bids[i]]||0;
+  var active=[];for(var g=0;g<groups.length;g++){if(groups[g].its.length)active.push(groups[g]);}
+  var allDone=active.length>0;
   var h='<div class="card" style="border-left:4px solid #ea580c">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
   h+='<div><span style="font-weight:700;font-size:15px">'+o.s+'</span>';
   h+='<span style="font-size:11px;color:#6b7280;margin-left:7px">'+o.d+'</span></div></div>';
-  if(step==="items"){
-    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:11px">';
-    h+='<div style="width:22px;height:22px;border-radius:50%;background:#1e3a6e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">1</div>';
-    h+='<span style="font-weight:600">商品を確認する</span><span style="margin-left:auto;font-size:12px;color:#6b7280">'+ck+'/'+its.length+'</span></div>';
-    for(var i=0;i<its.length;i++){
-      var pid=its[i].pid,q=its[i].q,checked=A.chk[o.id+pid];
-      var pp=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pid){pp=PD[j];break;}}
-      var tl=pp?TEMP_LABEL[pp.temp]||"":"";var tc=pp?TEMP_COLOR[pp.temp]||"#6b7280":"#6b7280";
-      var isRice=pp&&pp.riceShip;
-      // 米は別手配なのでチェック不要とする（グレー表示）
-      if(isRice){
-        h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;opacity:0.6">';
-        h+='<div style="width:18px;height:18px;border-radius:3px;background:#e2e8f0;flex-shrink:0"></div>';
-        h+='<span style="flex:1;font-weight:600;color:#6b7280;text-decoration:line-through">'+pn(pid)+'</span>';
-        h+='<span style="font-size:10px;color:#6b7280;background:#f1f5f9;padding:2px 7px;border-radius:20px">🚚 但馬米穀手配</span>';
-        h+='<span style="font-weight:700;color:#6b7280">'+qd(pid,q)+'</span></div>';
-      } else {
+  // 米（但馬米穀手配）はチェック不要
+  for(var i=0;i<riceIts.length;i++){
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;opacity:0.6">';
+    h+='<div style="width:18px;height:18px;border-radius:3px;background:#e2e8f0;flex-shrink:0"></div>';
+    h+='<span style="flex:1;font-weight:600;color:#6b7280;text-decoration:line-through">'+pn(riceIts[i].pid)+'</span>';
+    h+='<span style="font-size:10px;color:#6b7280;background:#f1f5f9;padding:2px 7px;border-radius:20px">🚚 但馬米穀手配</span>';
+    h+='<span style="font-weight:700;color:#6b7280">'+qd(riceIts[i].pid,riceIts[i].q)+'</span></div>';
+  }
+  for(var g=0;g<active.length;g++){
+    var gr=active[g];var gk=o.id+"_"+gr.k;var its=gr.its;
+    var ck=0;for(var i=0;i<its.length;i++){if(A.chk[o.id+its[i].pid])ck++;}
+    var ok=ck===its.length;
+    var step=A.cst[gk]||"items";
+    var bc=A.bct[gk]||{cool140:0,cool100:0,land140:0,land100:0};
+    var tb=0;var bids=Object.keys(bc);for(var i=0;i<bids.length;i++)tb+=bc[bids[i]]||0;
+    if(step!=="done")allDone=false;
+    var done=step==="done";
+    h+='<div style="border:2px solid '+(done?"#86efac":gr.color+"55")+';border-radius:10px;padding:10px 12px;margin-bottom:12px;background:'+(done?"#f0fdf4":"#fff")+'">';
+    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">';
+    h+='<span style="font-weight:700;font-size:14px;color:'+(done?"#166534":gr.color)+'">'+gr.icon+' '+gr.label+'</span>';
+    h+='<span style="font-size:11px;color:#6b7280;margin-left:4px">'+its.length+'品</span>';
+    if(done)h+='<span style="margin-left:auto;font-size:12px;font-weight:700;color:#166534">✓ 確認済み</span>';
+    h+='</div>';
+    if(step==="items"){
+      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">';
+      h+='<div style="width:22px;height:22px;border-radius:50%;background:#1e3a6e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">1</div>';
+      h+='<span style="font-weight:600">商品を確認する</span><span style="margin-left:auto;font-size:12px;color:#6b7280">'+ck+'/'+its.length+'</span></div>';
+      for(var i=0;i<its.length;i++){
+        var pid=its[i].pid,q=its[i].q,checked=A.chk[o.id+pid],pp=its[i].pp;
+        var tl=pp?TEMP_LABEL[pp.temp]||"":"";var tc=pp?TEMP_COLOR[pp.temp]||"#6b7280":"#6b7280";
         h+='<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:'+(checked?"#f0fdf4":"#f8fafc")+';border-radius:8px;border:1px solid '+(checked?"#86efac":"#e2e8f0")+';cursor:pointer">';
         h+='<input type="checkbox" '+(checked?"checked":"")+' style="width:18px;height:18px;accent-color:#16a34a" onchange="toggleCheck(\''+o.id+'\',\''+pid+'\',this.checked)">';
         h+='<span style="flex:1;font-weight:600;text-decoration:'+(checked?"line-through":"none")+';color:'+(checked?"#6b7280":"#111")+'">'+pn(pid)+'</span>';
         if(tl)h+='<span style="font-size:10px;background:'+tc+'15;color:'+tc+';border:1px solid '+tc+'40;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0">'+tl+'</span>';
         h+='<span style="font-weight:700;color:'+(checked?"#16a34a":"#1e40af")+';flex-shrink:0">'+qd(pid,q)+'</span></label>';
       }
-    }
-    h+='<button '+(ok?'style="background:#1e3a6e;color:#fff;border:none;width:100%;padding:11px;border-radius:8px;margin-top:4px"':'disabled style="width:100%;padding:11px;border-radius:8px;margin-top:4px;opacity:0.35;cursor:not-allowed"')+' onclick="'+(ok?"goBoxStep("+o.id+")":"")+'">';
-    h+=(ok?"次へ：段ボールを選択 →":"残り "+(its.length-ck)+" 品の確認が必要です")+'</button>';
-  } else {
-    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px">';
-    h+='<div style="width:22px;height:22px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">✓</div>';
-    h+='<span style="color:#6b7280">商品確認済み</span>';
-    h+='<button onclick="backToItems('+o.id+')" style="margin-left:auto;padding:3px 7px;font-size:11px;color:#6b7280">← 戻る</button></div>';
-    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">';
-    h+='<div style="width:22px;height:22px;border-radius:50%;background:#1e3a6e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">2</div>';
-    h+='<span style="font-weight:600">使用した段ボールを入力する</span></div>';
-    for(var i=0;i<BX.length;i++){
-      var b=BX[i];var cnt=bc[b.id]||0;var on=cnt>0;
-      h+='<div style="background:'+(on?"#fef3c7":"#f8fafc")+';border:1px solid '+(on?"#f59e0b":"#e2e8f0")+';border-radius:8px;padding:11px 13px;margin-bottom:8px">';
-      h+='<div style="display:flex;align-items:center;justify-content:space-between">';
-      h+='<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+b.n+'</div>';
-      h+='<div style="font-size:11px;color:#6b7280">'+b.t+'</div>';
-      h+='<div style="font-size:12px;color:#92400e;font-weight:600;margin-top:2px">¥'+fmt(bp(b.id,o.s))+'/箱　'+(RL[RG[o.s]||"ka"]||"")+'</div></div>';
-      h+='<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">';
-      h+='<button style="width:40px;height:40px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:22px;font-weight:700;cursor:pointer" onclick="setBox('+o.id+',\''+b.id+'\',-1)">−</button>';
-      h+='<span style="font-size:24px;font-weight:700;min-width:34px;text-align:center;color:'+(cnt>0?"#92400e":"#6b7280")+'">'+cnt+'</span>';
-      h+='<button style="width:40px;height:40px;border-radius:8px;background:#1e3a6e;color:#fff;border:none;font-size:22px;font-weight:700;cursor:pointer" onclick="setBox('+o.id+',\''+b.id+'\',1)">＋</button>';
-      h+='</div></div></div>';
-    }
-    if(tb>0){
-      h+='<div style="padding:9px 13px;background:#fef3c7;border-radius:8px;margin-top:4px;margin-bottom:10px">';
-      h+='<div style="font-weight:600;color:#92400e;margin-bottom:4px;font-size:13px">📦 使用段ボール合計</div>';
-      for(var i=0;i<BX.length;i++){var cnt=bc[BX[i].id]||0;if(!cnt)continue;h+='<div style="display:flex;justify-content:space-between;font-size:13px"><span>'+BX[i].n+' × '+cnt+'箱</span><span style="font-weight:600">¥'+fmt(bp(BX[i].id,o.s)*cnt)+'</span></div>';}
-      h+='</div>';
+      h+='<button '+(ok?'style="background:#1e3a6e;color:#fff;border:none;width:100%;padding:11px;border-radius:8px;margin-top:4px"':'disabled style="width:100%;padding:11px;border-radius:8px;margin-top:4px;opacity:0.35;cursor:not-allowed"')+' onclick="'+(ok?"goBoxStep('"+gk+"')":"")+'">';
+      h+=(ok?"次へ：段ボールを選択 →":"残り "+(its.length-ck)+" 品の確認が必要です")+'</button>';
+    } else if(step==="boxes"){
+      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px">';
+      h+='<div style="width:22px;height:22px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">✓</div>';
+      h+='<span style="color:#6b7280">商品確認済み（'+its.length+'品）</span>';
+      h+='<button onclick="backToItems(\''+gk+'\')" style="margin-left:auto;padding:3px 7px;font-size:11px;color:#6b7280">← 戻る</button></div>';
+      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">';
+      h+='<div style="width:22px;height:22px;border-radius:50%;background:#1e3a6e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">2</div>';
+      h+='<span style="font-weight:600">使用した段ボールを入力する</span></div>';
+      for(var i=0;i<BX.length;i++){
+        var b=BX[i];var cnt=bc[b.id]||0;var on=cnt>0;
+        h+='<div style="background:'+(on?"#fef3c7":"#f8fafc")+';border:1px solid '+(on?"#f59e0b":"#e2e8f0")+';border-radius:8px;padding:11px 13px;margin-bottom:8px">';
+        h+='<div style="display:flex;align-items:center;justify-content:space-between">';
+        h+='<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">'+b.n+'</div>';
+        h+='<div style="font-size:11px;color:#6b7280">'+b.t+'</div>';
+        h+='<div style="font-size:12px;color:#92400e;font-weight:600;margin-top:2px">¥'+fmt(bp(b.id,o.s))+'/箱　'+(RL[RG[o.s]||"ka"]||"")+'</div></div>';
+        h+='<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">';
+        h+='<button style="width:40px;height:40px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:22px;font-weight:700;cursor:pointer" onclick="setBox(\''+gk+'\',\''+b.id+'\',-1)">−</button>';
+        h+='<span style="font-size:24px;font-weight:700;min-width:34px;text-align:center;color:'+(cnt>0?"#92400e":"#6b7280")+'">'+cnt+'</span>';
+        h+='<button style="width:40px;height:40px;border-radius:8px;background:#1e3a6e;color:#fff;border:none;font-size:22px;font-weight:700;cursor:pointer" onclick="setBox(\''+gk+'\',\''+b.id+'\',1)">＋</button>';
+        h+='</div></div></div>';
+      }
+      if(tb>0){
+        h+='<div style="padding:9px 13px;background:#fef3c7;border-radius:8px;margin-top:4px;margin-bottom:10px">';
+        h+='<div style="font-weight:600;color:#92400e;margin-bottom:4px;font-size:13px">📦 '+gr.label+'の段ボール</div>';
+        for(var i=0;i<BX.length;i++){var cnt=bc[BX[i].id]||0;if(!cnt)continue;h+='<div style="display:flex;justify-content:space-between;font-size:13px"><span>'+BX[i].n+' × '+cnt+'箱</span><span style="font-weight:600">¥'+fmt(bp(BX[i].id,o.s)*cnt)+'</span></div>';}
+        h+='</div>';
+      } else {
+        h+='<div style="text-align:center;font-size:12px;color:#6b7280;padding:7px;margin-bottom:9px">段ボールが不要な場合はそのまま完了できます</div>';
+      }
+      h+='<button style="background:#16a34a;color:#fff;border:none;width:100%;padding:11px;border-radius:8px;font-weight:700" onclick="doneGroup(\''+gk+'\')">✓ '+gr.label+'の確認を完了</button>';
     } else {
-      h+='<div style="text-align:center;font-size:12px;color:#6b7280;padding:7px;margin-bottom:9px">段ボールが不要な場合はそのまま完了できます</div>';
+      // done：要約表示
+      var any=false;
+      for(var i=0;i<BX.length;i++){var cnt=bc[BX[i].id]||0;if(!cnt)continue;any=true;h+='<div style="display:flex;justify-content:space-between;font-size:13px;color:#166534"><span>📦 '+BX[i].n+' × '+cnt+'箱</span><span style="font-weight:600">¥'+fmt(bp(BX[i].id,o.s)*cnt)+'</span></div>';}
+      if(!any)h+='<div style="font-size:12px;color:#6b7280">段ボールなし</div>';
+      h+='<button onclick="backToBoxes(\''+gk+'\')" style="margin-top:6px;padding:4px 9px;font-size:11px;color:#6b7280">← 段ボールを修正</button>';
     }
+    h+='</div>';
+  }
+  if(!active.length)h+='<div style="font-size:12px;color:#6b7280;margin-bottom:10px">確認が必要な商品はありません</div>';
+  // 全グループ完了で出荷完了ボタン
+  var canShip=allDone||!active.length;
+  if(canShip){
+    var tot={};for(var g=0;g<active.length;g++){var bb=A.bct[o.id+"_"+active[g].k]||{};var ks=Object.keys(bb);for(var i=0;i<ks.length;i++)tot[ks[i]]=(tot[ks[i]]||0)+(bb[ks[i]]||0);}
+    var tl2=[];for(var i=0;i<BX.length;i++){if(tot[BX[i].id]>0)tl2.push(BX[i].n+"×"+tot[BX[i].id]);}
+    if(tl2.length)h+='<div style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:6px">📦 合計：'+tl2.join("　")+'</div>';
     h+='<button class="bg" style="width:100%;padding:13px;font-size:15px" onclick="markShipped('+o.id+')">✅ 出荷完了にする</button>';
+  } else {
+    var rem=[];for(var g=0;g<active.length;g++){if((A.cst[o.id+"_"+active[g].k]||"items")!=="done")rem.push(active[g].label);}
+    h+='<button disabled style="width:100%;padding:13px;font-size:14px;border-radius:8px;opacity:0.35;cursor:not-allowed">出荷完了（'+rem.join("・")+' の確認待ち）</button>';
   }
   return h+'</div>';
 }
 function toggleCheck(oid,pid,val){A.chk[oid+pid]=val;re();}
-function goBoxStep(oid){A.cst[oid]="boxes";if(!A.bct[oid])A.bct[oid]={cool140:0,cool100:0,land140:0,land100:0};re();}
-function backToItems(oid){A.cst[oid]="items";re();}
-function setBox(oid,bid,d){if(!A.bct[oid])A.bct[oid]={cool140:0,cool100:0,land140:0,land100:0};A.bct[oid][bid]=Math.max(0,(A.bct[oid][bid]||0)+d);re();}
+function goBoxStep(gk){A.cst[gk]="boxes";if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,land140:0,land100:0};re();}
+function backToItems(gk){A.cst[gk]="items";re();}
+function backToBoxes(gk){A.cst[gk]="boxes";re();}
+function doneGroup(gk){A.cst[gk]="done";re();}
+function setBox(gk,bid,d){if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,land140:0,land100:0};A.bct[gk][bid]=Math.max(0,(A.bct[gk][bid]||0)+d);re();}
 function markShipped(oid){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
-  if(o){o.st="shipped";o.bx=A.bct[oid]||{};var log=deductStock(o);o.stockLog=log;}
+  if(o){
+    // 冷凍以外・冷凍の段ボールを合算して保存
+    var bx={};var keys=["c","f"];
+    for(var k=0;k<keys.length;k++){var bb=A.bct[oid+"_"+keys[k]]||{};var ks=Object.keys(bb);for(var i=0;i<ks.length;i++)bx[ks[i]]=(bx[ks[i]]||0)+(bb[ks[i]]||0);}
+    o.st="shipped";o.bx=bx;var log=deductStock(o);o.stockLog=log;
+  }
   A.justShipped=oid;A.justShippedOrder=o;A.tab="check";re();
   // Supabaseに出荷完了を反映
   if(o)updateOrder(o,null);
