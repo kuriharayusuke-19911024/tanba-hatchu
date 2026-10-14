@@ -106,6 +106,57 @@ function loadStockFromCloud(callback){
     .catch(function(e){console.error("Stock load error",e);if(callback)callback();});
 }
 
+// 商品設定（アプリ上で追加・編集した商品）をSupabaseに保存／読込
+// stock_items テーブルの id="cfg_products" 行の name 列にJSONで保存する
+var PCFG={custom:[],edits:{},deleted:[]};
+var CUSTOM_FIELDS=["n","u","sp","tx","co","v","temp","tempNote","lotSize","lotUnit","minLot","dispUnit","dispMult","ings","stockLink","minStock"];
+function saveProductCfg(){
+  supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_products",name:JSON.stringify(PCFG),stock:0})
+    .then(function(r){if(!r.ok)r.text().then(function(t){console.error("Product cfg save error",r.status,t);alert("商品設定の保存に失敗しました。通信状況を確認してください。");});})
+    .catch(function(e){console.error("Product cfg save error",e);alert("商品設定の保存に失敗しました。");});
+}
+function ensureCustomStock(p){
+  if(!p.stockLink)return;
+  var sid="s_"+p.id;var found=null;
+  for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===sid){found=STOCK[i];break;}}
+  if(!found){
+    found={id:sid,n:p.n,type:"raw",cat:p.temp==="frozen"?"frozen":"fresh",u:p.u,stock:0,minStock:p.minStock||0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:p.id,custom:true};
+    STOCK.push(found);
+  } else {found.n=p.n;found.u=p.u;found.minStock=p.minStock||0;found.custom=true;}
+  STOCK_MAP[p.id]=[{sid:sid,qty:1}];
+}
+function applyProductCfg(){
+  var i,j;
+  for(i=0;i<PCFG.deleted.length;i++){for(j=0;j<PD.length;j++){if(PD[j].id===PCFG.deleted[i]){PD.splice(j,1);break;}}}
+  var eks=Object.keys(PCFG.edits||{});
+  for(i=0;i<eks.length;i++){for(j=0;j<PD.length;j++){if(PD[j].id===eks[i]){var e=PCFG.edits[eks[i]];var fk=Object.keys(e);for(var k=0;k<fk.length;k++)PD[j][fk[k]]=e[fk[k]];break;}}}
+  for(i=0;i<PCFG.custom.length;i++){
+    var c=PCFG.custom[i];var ex=false;
+    for(j=0;j<PD.length;j++){if(PD[j].id===c.id){PD[j]=c;ex=true;break;}}
+    if(!ex)PD.push(c);
+    ensureCustomStock(c);
+  }
+  syncVis();
+}
+function loadProductCfg(callback){
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_products")
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(Array.isArray(data)&&data.length&&data[0].name){
+        try{var o=JSON.parse(data[0].name);PCFG={custom:o.custom||[],edits:o.edits||{},deleted:o.deleted||[]};}catch(e){console.error("Product cfg parse error",e);}
+      }
+      applyProductCfg();
+      if(callback)callback();
+    })
+    .catch(function(e){console.error("Product cfg load error",e);if(callback)callback();});
+}
+function isCustomProd(id){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===id)return true;}return false;}
+function recordProdEdit(p){
+  if(isCustomProd(p.id)){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===p.id){PCFG.custom[i]=JSON.parse(JSON.stringify(p));break;}}ensureCustomStock(p);}
+  else{var e={};for(var k=0;k<CUSTOM_FIELDS.length;k++){var f=CUSTOM_FIELDS[k];if(p[f]!==undefined)e[f]=JSON.parse(JSON.stringify(p[f]));}PCFG.edits[p.id]=e;}
+  saveProductCfg();
+}
+
 // 全発注データをSupabaseから読み込む
 function loadOrders(callback){
   supaFetch("GET","orders?select=*&order=id.desc")
@@ -1439,8 +1490,8 @@ function rMaster(){
   h+='<button onclick="A.modal={type:\'ap\'};re()" style="width:100%;padding:11px;border:1px dashed #e2e8f0">＋ 商品を追加する</button>';
   return h;
 }
-function toggleVis(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD[i].v=!PD[i].v;break;}}syncVis();re();}
-function delProd(id){if(!confirm("削除しますか？"))return;for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD.splice(i,1);break;}}syncVis();re();}
+function toggleVis(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD[i].v=!PD[i].v;recordProdEdit(PD[i]);break;}}syncVis();re();}
+function delProd(id){if(!confirm("削除しますか？（発注画面から消えます。過去の履歴は残ります）"))return;for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD.splice(i,1);break;}}if(isCustomProd(id)){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===id){PCFG.custom.splice(i,1);break;}}}else{if(PCFG.deleted.indexOf(id)<0)PCFG.deleted.push(id);delete PCFG.edits[id];}saveProductCfg();syncVis();re();}
 function openME(id){ME=null;for(var i=0;i<PD.length;i++){if(PD[i].id===id){ME=JSON.parse(JSON.stringify(PD[i]));break;}}A.modal={type:"me"};re();}
 
 // ============================================================
@@ -1540,6 +1591,12 @@ function rME(){
   var mg=p.sp>0?Math.round((p.sp-tc)/p.sp*100):0;var mc=mg>=50?"#16a34a":mg>=30?"#92400e":"#dc2626";
   var h='<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()"><div class="mh"></div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:700">'+p.n+'　設定</div><button onclick="cm()" style="background:none;border:none;font-size:22px;color:#6b7280">✕</button></div>';
+  h+='<div class="g2" style="margin-bottom:12px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">商品名</label><input value="'+p.n+'" oninput="ME.n=this.value"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">単位</label><input value="'+p.u+'" oninput="ME.u=this.value"></div></div>';
+  var tks=["chilled","frozen","ambient","season","other"];
+  h+='<div class="g2" style="margin-bottom:12px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">温度帯</label><select style="width:100%;padding:8px" onchange="ME.temp=this.value">';
+  for(var ti=0;ti<tks.length;ti++)h+='<option value="'+tks[ti]+'"'+(p.temp===tks[ti]?" selected":"")+'>'+TEMP_LABEL[tks[ti]]+'</option>';
+  h+='</select></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">最低ロット</label><input type="number" value="'+(p.minLot||1)+'" oninput="ME.minLot=parseInt(this.value)||1"></div></div>';
+  h+='<div style="margin-bottom:12px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">発注画面の単位表記</label><input value="'+(p.lotUnit||p.u)+'" oninput="ME.lotUnit=this.value"></div>';
   h+='<div style="margin-bottom:12px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">請求会社</label><div class="g2">';
   var coks=Object.keys(CO);for(var i=0;i<coks.length;i++){var k=coks[i];h+='<button onclick="ME.co=\''+k+'\';re()" style="padding:8px;font-size:12px;'+(ME.co===k?"background:"+CO[k].c+";color:#fff;border-color:"+CO[k].c:"")+'">'+(CO[k].n||"")+'</button>';}
   h+='</div></div>';
@@ -1559,7 +1616,17 @@ function rME(){
   h+='<button class="bg" style="width:100%;padding:12px;font-size:15px" onclick="saveME()">保存する ✅</button></div></div>';
   return h;
 }
-function rAP(){return'<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()"><div class="mh"></div><div style="font-size:15px;font-weight:700;margin-bottom:14px">商品を追加</div><div class="g2" style="margin-bottom:10px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">商品名</label><input id="NN" placeholder="例：丹波ワイン"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">単位</label><input id="NU" value="個"></div></div><div style="display:flex;gap:8px"><button class="bg" style="flex:1;padding:10px" onclick="addNewProd()">追加する</button><button style="flex:1;padding:10px" onclick="cm()">キャンセル</button></div></div></div>';}
+function rAP(){
+  var h='<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()"><div class="mh"></div><div style="font-size:15px;font-weight:700;margin-bottom:14px">商品を追加</div>';
+  h+='<div style="margin-bottom:10px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">商品名</label><input id="NN" placeholder="例：丹波黒枝豆"></div>';
+  h+='<div class="g2" style="margin-bottom:10px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">単位（1発注＝1○）</label><input id="NU" value="kg"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">販売単価（円・未定は0）</label><input id="NP" type="number" value="0"></div></div>';
+  h+='<div class="g2" style="margin-bottom:10px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">温度帯</label><select id="NT" style="width:100%;padding:8px"><option value="chilled">❄️ チルド</option><option value="frozen">🧊 冷凍</option><option value="ambient">🌡 常温</option><option value="season">🌤 時期による</option></select></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">最低ロット（発注数）</label><input id="NM" type="number" value="1"></div></div>';
+  h+='<div style="margin-bottom:10px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">発注画面の単位表記（例：kg、パック(1kg)、発注(20本)）</label><input id="NL" placeholder="空欄なら単位と同じ"></div>';
+  h+='<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px"><input type="checkbox" id="NS" checked style="width:18px;height:18px"> 在庫タブで数量管理する（発注1つにつき在庫1'+'単位減少）</label>';
+  h+='<div style="font-size:11px;color:#6b7280;margin-bottom:12px">※ 保存するとクラウドに記録され、全員のアプリに反映されます。単価や温度帯は後から商品名をタップして変更できます。</div>';
+  h+='<div style="display:flex;gap:8px"><button class="bg" style="flex:1;padding:10px" onclick="addNewProd()">追加する</button><button style="flex:1;padding:10px" onclick="cm()">キャンセル</button></div></div></div>';
+  return h;
+}
 function rPH(){var m=A.modal;var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===m.oid){o=OR[i];break;}}if(!o)return "";var src=o.sl[m.idx];return'<div class="ov" onclick="cm()" style="align-items:center"><div style="max-width:90vw;max-height:90vh;position:relative;min-height:200px;display:flex;align-items:center;justify-content:center"><img src="'+src+'" style="max-width:90vw;max-height:80vh;border-radius:10px;object-fit:contain"><button onclick="cm()" style="position:absolute;top:-12px;right:-12px;width:28px;height:28px;border-radius:50%;background:#fff;border:1px solid #e2e8f0;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button></div></div>';}
 function rSE(){
   var s=SE;if(!s)return "";
@@ -1586,11 +1653,18 @@ function rAddSt(){
 function updateIng(id,f,v){for(var i=0;i<ME.ings.length;i++){if(ME.ings[i].id===id){ME.ings[i][f]=v;break;}}re();}
 function removeIng(id){for(var i=0;i<ME.ings.length;i++){if(ME.ings[i].id===id){ME.ings.splice(i,1);break;}}re();}
 function addIng(){ME.ings.push({id:++INC,n:"",q:1,u:"個",c:0});re();}
-function saveME(){for(var i=0;i<PD.length;i++){if(PD[i].id===ME.id){PD[i]=JSON.parse(JSON.stringify(ME));break;}}ME=null;cm();}
-function addNewProd(){var n=document.getElementById("NN").value.trim();var u=document.getElementById("NU").value.trim()||"個";if(!n)return;PD.push({id:"c"+Date.now(),n:n,u:u,sp:0,tx:0.08,v:true,co:"tanno",ings:[]});cm();}
+function saveME(){var saved=null;for(var i=0;i<PD.length;i++){if(PD[i].id===ME.id){PD[i]=JSON.parse(JSON.stringify(ME));saved=PD[i];break;}}if(saved)recordProdEdit(saved);ME=null;syncVis();cm();}
+function addNewProd(){
+  var n=document.getElementById("NN").value.trim();var u=document.getElementById("NU").value.trim()||"個";if(!n){alert("商品名を入力してください");return;}
+  var sp=parseInt(document.getElementById("NP").value)||0;var temp=document.getElementById("NT").value;
+  var lotUnit=document.getElementById("NL").value.trim()||u;var minLot=parseInt(document.getElementById("NM").value)||1;
+  var stockLink=document.getElementById("NS").checked;
+  var p={id:"c"+Date.now(),n:n,u:u,sp:sp,tx:0.08,v:true,co:"tanno",temp:temp,lotSize:1,lotUnit:lotUnit,minLot:minLot,dispUnit:u,stockLink:stockLink,minStock:0,ings:[{id:1,n:n+"仕入れ",q:1,u:u,c:0}]};
+  PD.push(p);PCFG.custom.push(p);ensureCustomStock(p);saveProductCfg();syncVis();cm();
+}
 var _stSaveT=null;
 function scheduleStockSave(){clearTimeout(_stSaveT);_stSaveT=setTimeout(saveStockToCloud,600);}
-function upSt(id,f,v){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;break;}}if(f==="stock")scheduleStockSave();re();}
+function upSt(id,f,v){var it=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;it=STOCK[i];break;}}if(f==="stock")scheduleStockSave();if(f==="minStock"&&it&&it.custom){for(var c=0;c<PCFG.custom.length;c++){if(PCFG.custom[c].id===it.linkedPid){PCFG.custom[c].minStock=v;break;}}saveProductCfg();}re();}
 function delSt(id){if(!confirm("削除しますか？"))return;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK.splice(i,1);break;}}cm();}
 function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)return;STOCK.push({id:"s_"+Date.now(),n:n,type:"raw",cat:document.getElementById("sn_c").value,u:document.getElementById("sn_u").value||"個",stock:parseFloat(document.getElementById("sn_s").value)||0,minStock:parseFloat(document.getElementById("sn_m").value)||5,weeklyNeed:parseFloat(document.getElementById("sn_w").value)||0,unitCost:0,linked:[]});cm();}
 function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}if(!o)return;if(!o.sl)o.sl=[];var files=Array.from(input.files);var loaded=0;files.forEach(function(f){var r=new FileReader();r.onload=function(e){o.sl.push(e.target.result);loaded++;if(loaded===files.length){re();updateOrder(o,null);}};r.readAsDataURL(f);});}
@@ -1737,9 +1811,11 @@ function closePrintOverlay(){
 
 syncVis();
 showLoading();
-loadOrders(function(){
-  loadStockFromCloud(function(){
-    re();
+loadProductCfg(function(){
+  loadOrders(function(){
+    loadStockFromCloud(function(){
+      re();
+    });
   });
 });
 </script>
