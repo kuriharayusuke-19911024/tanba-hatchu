@@ -192,7 +192,8 @@ function loadOrders(callback){
           s:row.store,
           d:row.date,
           it:row.items||{},
-          bx:row.boxes||{},
+          bx:(function(b){var r={};var ks=Object.keys(b||{});for(var i=0;i<ks.length;i++){if(ks[i].charAt(0)!=="_")r[ks[i]]=b[ks[i]];}return r;})(row.boxes),
+          tanto:(row.boxes&&row.boxes._tanto)||"",
           st:row.status,
           sl:row.photos||[],
           stockLog:row.stock_log||[]
@@ -204,13 +205,14 @@ function loadOrders(callback){
 }
 
 // 発注をSupabaseに保存
+function boxesForSave(o){var b={};var bx=o.bx||{};var ks=Object.keys(bx);for(var i=0;i<ks.length;i++)b[ks[i]]=bx[ks[i]];if(o.tanto)b._tanto=o.tanto;return b;}
 function saveOrder(o,callback){
   var row={
     id:o.id,
     store:o.s,
     date:o.d,
     items:o.it,
-    boxes:o.bx||{},
+    boxes:boxesForSave(o),
     status:o.st,
     photos:o.sl||[],
     stock_log:o.stockLog||[]
@@ -229,7 +231,7 @@ function updateOrder(o,callback){
     store:o.s,
     date:o.d,
     items:o.it,
-    boxes:o.bx||{},
+    boxes:boxesForSave(o),
     status:o.st,
     photos:o.sl||[],
     stock_log:o.stockLog||[]
@@ -477,6 +479,9 @@ function calcMonthData(month,sf,rf){
       var o=OR[j];if(o.s!==s||o.d.indexOf(month)!==0)continue;
       var pids=Object.keys(o.it);
       for(var k=0;k<pids.length;k++){var p=null;for(var l=0;l<PD.length;l++){if(PD[l].id===pids[k]){p=PD[l];break;}}if(p)order+=p.sp*o.it[pids[k]];}
+      // 米：精米代（袋ごと）＋但馬米穀出荷の送料（30kg=1袋ごと）を請求書と同じ計算で加算
+      var rq=o.it["rice"]||0;
+      if(rq>0){var sp2=null;for(var l=0;l<PD.length;l++){if(PD[l].id==="seimaihi"){sp2=PD[l];break;}}if(sp2)order+=sp2.sp*rq;var rs=(RICE_SHIP[RG[s]||"ka"]||1500)*rq;ship+=rs;order+=rs;}
       if(o.bx){for(var bi=0;bi<BX.length;bi++){var sc=bp(BX[bi].id,s)*(o.bx[BX[bi].id]||0);ship+=sc;order+=sc;}}
       cnt++;
     }
@@ -697,11 +702,7 @@ function submitOrder(){
   var it={};var hasItem=false;
   for(var i=0;i<PD.length;i++){var q=OF.q[PD[i].id]||0;if(q>0){it[PD[i].id]=q;hasItem=true;}}
   if(!hasItem)return alert("1品以上入力してください");
-  // 同じ店舗の出荷済み履歴を削除
-  var toDelete=[];for(var i=0;i<OR.length;i++){if(OR[i].s===OF.s&&OR[i].st==="shipped")toDelete.push(OR[i].id);}
-  var newOR=[];for(var i=0;i<OR.length;i++){if(OR[i].s!==OF.s||OR[i].st!=="shipped")newOR.push(OR[i]);}
-  OR=newOR;
-  var newOrder={id:Date.now(),s:OF.s,d:today(),it:it,bx:{},st:"pending",sl:[]};
+  var newOrder={id:Date.now(),s:OF.s,d:today(),it:it,bx:{},st:"pending",sl:[],tanto:(OF.tanto||"").trim()};
   OR.unshift(newOrder);
   OF.done=true;OF.stockAlerts=[];
   re();
@@ -710,8 +711,8 @@ function submitOrder(){
   withFreshStock(function(){
   var stockAlerts=deductStockByOrder(it);
   OF.stockAlerts=(A.user.r==="admin"?stockAlerts:[]);
-  // 在庫ゼロの食材はLINEに通知
-  if(A.user.r==="admin"&&stockAlerts.length>0){
+  // 在庫ゼロの食材はLINEに通知（店舗の発注でも送る）
+  if(stockAlerts.length>0){
     var emptyItems=[];
     for(var i=0;i<stockAlerts.length;i++){
       if(stockAlerts[i].stock<=0)emptyItems.push(stockAlerts[i].n);
@@ -721,7 +722,6 @@ function submitOrder(){
     }
   }
   });
-  for(var i=0;i<toDelete.length;i++){deleteOrder(toDelete[i],null);}
 }
 
 // ============================================================
@@ -730,7 +730,8 @@ function submitOrder(){
 function rHist(){
   var ia=A.user.r==="admin";
   var fs=ia?(A.hf||"all"):A.user.s;
-  var fl=[];for(var i=0;i<OR.length;i++){if(fs==="all"||OR[i].s===fs)fl.push(OR[i]);}
+  var cutoff=new Date();cutoff.setDate(cutoff.getDate()-60);var cut=cutoff.getFullYear()+"-"+String(cutoff.getMonth()+1).padStart(2,"0")+"-"+String(cutoff.getDate()).padStart(2,"0");
+  var fl=[];var hiddenOld=0;for(var i=0;i<OR.length;i++){if(fs==="all"||OR[i].s===fs){if(!A.hAll&&OR[i].st==="shipped"&&OR[i].d<cut){hiddenOld++;continue;}fl.push(OR[i]);}}
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">📋 発注履歴</div>';
   h+='<div style="font-size:13px;color:#6b7280;margin-bottom:8px">発注内容・発送伝票の写真を確認できます</div>';
   if(!ia)h+='<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#1e40af">📷 出荷が完了すると発送伝票の写真がここに表示されます</div>';
@@ -744,12 +745,14 @@ function rHist(){
     h+='</div></div>';
   }
   if(!fl.length)h+='<div class="card" style="text-align:center;color:#6b7280;padding:36px">発注履歴がありません</div>';
+  if(hiddenOld>0)h+='<div style="text-align:center;margin-bottom:10px"><button onclick="A.hAll=true;re()" style="padding:6px 14px;font-size:12px">60日より前の出荷済み '+hiddenOld+'件も表示する</button></div>';
+  else if(A.hAll)h+='<div style="text-align:center;margin-bottom:10px"><button onclick="A.hAll=false;re()" style="padding:6px 14px;font-size:12px;color:#6b7280">直近60日のみ表示に戻す</button></div>';
   for(var i=0;i<fl.length;i++){
     var o=fl[i];var shipped=o.st==="shipped";
     h+='<div class="card" style="border-left:4px solid '+(shipped?"#16a34a":"#ea580c")+'">';
     h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
     h+='<div><div style="font-weight:700;font-size:14px">'+o.s+'</div>';
-    h+='<div style="font-size:11px;color:#6b7280">'+o.d+'　'+(RL[RG[o.s]||"ka"]||"")+'</div></div>';
+    h+='<div style="font-size:11px;color:#6b7280">'+o.d+'　'+(RL[RG[o.s]||"ka"]||"")+(o.tanto?'　👤 '+esc(o.tanto):'')+'</div></div>';
     h+='<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:'+(shipped?"#dcfce7":"#fef3c7")+';color:'+(shipped?"#166534":"#92400e")+'">'+(shipped?"✅ 出荷済":"⏳ 準備中")+'</span></div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px">';
     var pids=Object.keys(o.it);
@@ -830,7 +833,7 @@ function rCheckOrder(o){
   var h='<div class="card" style="border-left:4px solid #ea580c">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
   h+='<div><span style="font-weight:700;font-size:15px">'+o.s+'</span>';
-  h+='<span style="font-size:11px;color:#6b7280;margin-left:7px">'+o.d+'</span></div></div>';
+  h+='<span style="font-size:11px;color:#6b7280;margin-left:7px">'+o.d+(o.tanto?'　👤 '+esc(o.tanto):'')+'</span></div></div>';
   // 米・男爵など業者直送品はチェック不要
   for(var i=0;i<riceIts.length;i++){
     h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;opacity:0.6">';
@@ -1218,7 +1221,7 @@ function buildInvRows(st){
   for(var i=0;i<lkeys.length;i++){var id=lkeys[i];var bq=li[id];var key=st+id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===id){p=PD[j];break;}}rows.push({t:"p",id:id,n:p?p.n:id,u:p?p.u:"",bq:bq,q:fq,p:p?p.sp:0,tx:p?p.tx:0.08,c:p?gc(p):0});}
   // 送料処理：丹波農商（米）は固定送料、丹農食品は段ボール実費
   if(A.ico==="tanba"){
-    // 米の固定送料（但馬米穀出荷）東京¥1,500・大阪¥1,000
+    // 米の送料（但馬米穀出荷）30kg=1袋ごとに 東京¥1,500・大阪¥1,000
     var rg=RG[st]||"ka";
     var riceShip=RICE_SHIP[rg]||1500;
     var riceQty=li["rice"]||0;
