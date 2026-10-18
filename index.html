@@ -113,7 +113,7 @@ function loadStockFromCloud(callback){
 
 // 商品設定（アプリ上で追加・編集した商品）をSupabaseに保存／読込
 // stock_items テーブルの id="cfg_products" 行の name 列にJSONで保存する
-var PCFG={custom:[],edits:{},deleted:[]};
+var PCFG={custom:[],edits:{},deleted:[],stockDeleted:[],stockCustom:[],stockMin:{}};
 var CUSTOM_FIELDS=["n","u","sp","tx","co","v","temp","tempNote","lotSize","lotUnit","minLot","dispUnit","dispMult","ings","stockLink","minStock"];
 function saveProductCfg(){
   supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_products",name:JSON.stringify(PCFG),stock:0})
@@ -141,6 +141,17 @@ function applyProductCfg(){
     if(!ex)PD.push(c);
     ensureCustomStock(c);
   }
+  // 在庫タブで追加した食材
+  for(i=0;i<PCFG.stockCustom.length;i++){
+    var sc=PCFG.stockCustom[i];var found=false;
+    for(j=0;j<STOCK.length;j++){if(STOCK[j].id===sc.id){STOCK[j].n=sc.n;STOCK[j].cat=sc.cat;STOCK[j].u=sc.u;STOCK[j].minStock=sc.minStock;STOCK[j].weeklyNeed=sc.weeklyNeed||0;found=true;break;}}
+    if(!found)STOCK.push({id:sc.id,n:sc.n,type:"raw",cat:sc.cat,u:sc.u,stock:0,minStock:sc.minStock,weeklyNeed:sc.weeklyNeed||0,unitCost:0,linked:[],stockCustom:true});
+  }
+  // 発注点の変更
+  var mks=Object.keys(PCFG.stockMin||{});
+  for(i=0;i<mks.length;i++){for(j=0;j<STOCK.length;j++){if(STOCK[j].id===mks[i]){STOCK[j].minStock=PCFG.stockMin[mks[i]];break;}}}
+  // 在庫タブで削除した食材
+  for(i=0;i<PCFG.stockDeleted.length;i++){for(j=0;j<STOCK.length;j++){if(STOCK[j].id===PCFG.stockDeleted[i]){STOCK.splice(j,1);break;}}}
   syncVis();
 }
 function loadProductCfg(callback){
@@ -148,7 +159,7 @@ function loadProductCfg(callback){
     .then(function(r){return r.json();})
     .then(function(data){
       if(Array.isArray(data)&&data.length&&data[0].name){
-        try{var o=JSON.parse(data[0].name);PCFG={custom:o.custom||[],edits:o.edits||{},deleted:o.deleted||[]};}catch(e){console.error("Product cfg parse error",e);}
+        try{var o=JSON.parse(data[0].name);PCFG={custom:o.custom||[],edits:o.edits||{},deleted:o.deleted||[],stockDeleted:o.stockDeleted||[],stockCustom:o.stockCustom||[],stockMin:o.stockMin||{}};}catch(e){console.error("Product cfg parse error",e);}
       }
       applyProductCfg();
       if(callback)callback();
@@ -1678,9 +1689,26 @@ function addNewProd(){
 }
 var _stSaveT=null;
 function scheduleStockSave(){clearTimeout(_stSaveT);_stSaveT=setTimeout(saveStockToCloud,600);}
-function upSt(id,f,v){var it=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;it=STOCK[i];break;}}if(f==="stock")scheduleStockSave();if(f==="minStock"&&it&&it.custom){for(var c=0;c<PCFG.custom.length;c++){if(PCFG.custom[c].id===it.linkedPid){PCFG.custom[c].minStock=v;break;}}saveProductCfg();}re();}
-function delSt(id){if(!confirm("削除しますか？"))return;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK.splice(i,1);break;}}cm();}
-function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)return;STOCK.push({id:"s_"+Date.now(),n:n,type:"raw",cat:document.getElementById("sn_c").value,u:document.getElementById("sn_u").value||"個",stock:parseFloat(document.getElementById("sn_s").value)||0,minStock:parseFloat(document.getElementById("sn_m").value)||5,weeklyNeed:parseFloat(document.getElementById("sn_w").value)||0,unitCost:0,linked:[]});cm();}
+var _cfgSaveT=null;
+function scheduleCfgSave(){clearTimeout(_cfgSaveT);_cfgSaveT=setTimeout(saveProductCfg,800);}
+function upSt(id,f,v){var it=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i][f]=v;it=STOCK[i];break;}}if(f==="stock")scheduleStockSave();
+  if(it&&(f==="minStock"||f==="weeklyNeed")){
+    if(it.custom){for(var c=0;c<PCFG.custom.length;c++){if(PCFG.custom[c].id===it.linkedPid){PCFG.custom[c].minStock=it.minStock;break;}}}
+    else if(it.stockCustom){for(var c=0;c<PCFG.stockCustom.length;c++){if(PCFG.stockCustom[c].id===id){PCFG.stockCustom[c].minStock=it.minStock;PCFG.stockCustom[c].weeklyNeed=it.weeklyNeed;break;}}}
+    else if(f==="minStock"){PCFG.stockMin[id]=v;}
+    scheduleCfgSave();
+  }
+  re();}
+function delSt(id){if(!confirm("この食材を在庫リストから削除しますか？（全員の画面から消えます）"))return;var it=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){it=STOCK[i];STOCK.splice(i,1);break;}}
+  if(it&&it.stockCustom){for(var c=0;c<PCFG.stockCustom.length;c++){if(PCFG.stockCustom[c].id===id){PCFG.stockCustom.splice(c,1);break;}}}
+  else{if(PCFG.stockDeleted.indexOf(id)<0)PCFG.stockDeleted.push(id);delete PCFG.stockMin[id];}
+  if(it&&it.custom){for(var c=0;c<PCFG.custom.length;c++){if(PCFG.custom[c].id===it.linkedPid){PCFG.custom[c].stockLink=false;break;}}delete STOCK_MAP[it.linkedPid];}
+  saveProductCfg();cm();}
+function addStItem(){var n=document.getElementById("sn_n").value.trim();if(!n)return;
+  var item={id:"s_"+Date.now(),n:n,type:"raw",cat:document.getElementById("sn_c").value,u:document.getElementById("sn_u").value||"個",stock:parseFloat(document.getElementById("sn_s").value)||0,minStock:parseFloat(document.getElementById("sn_m").value)||5,weeklyNeed:parseFloat(document.getElementById("sn_w").value)||0,unitCost:0,linked:[],stockCustom:true};
+  STOCK.push(item);
+  PCFG.stockCustom.push({id:item.id,n:item.n,cat:item.cat,u:item.u,minStock:item.minStock,weeklyNeed:item.weeklyNeed});
+  saveProductCfg();saveStockToCloud();cm();}
 function addSlipPhotos(oid,input){var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}if(!o)return;if(!o.sl)o.sl=[];var files=Array.from(input.files);var loaded=0;files.forEach(function(f){var r=new FileReader();r.onload=function(e){o.sl.push(e.target.result);loaded++;if(loaded===files.length){re();updateOrder(o,null);}};r.readAsDataURL(f);});}
 function addSlipPhotosQuick(oid,input){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
