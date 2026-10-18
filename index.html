@@ -77,7 +77,6 @@ var _cloudStock={};
 function saveStockToCloud(){
   var items=[];
   for(var i=0;i<STOCK.length;i++){
-    if(STOCK[i].type==="box")continue;
     var id=STOCK[i].id;
     if(_cloudStock[id]!==undefined&&Number(_cloudStock[id])===Number(STOCK[i].stock))continue;
     items.push({id:id,name:STOCK[i].n,stock:STOCK[i].stock});
@@ -929,11 +928,11 @@ function markShipped(oid){
     // 冷凍以外・冷凍の段ボールを合算して保存
     var bx={};var keys=["c","f"];
     for(var k=0;k<keys.length;k++){var bb=A.bct[oid+"_"+keys[k]]||{};var ks=Object.keys(bb);for(var i=0;i<ks.length;i++)bx[ks[i]]=(bx[ks[i]]||0)+(bb[ks[i]]||0);}
-    o.st="shipped";o.bx=bx;var log=deductStock(o);o.stockLog=log;
+    o.st="shipped";o.bx=bx;
   }
   A.justShipped=oid;A.justShippedOrder=o;A.tab="check";re();
-  // Supabaseに出荷完了を反映
-  if(o)updateOrder(o,null);
+  // Supabaseに出荷完了を反映（段ボール在庫はクラウドの最新値を読んでから減算）
+  if(o)withFreshStock(function(){var log=deductStock(o);o.stockLog=log;updateOrder(o,null);});
   setTimeout(function(){A.justShipped=null;A.justShippedOrder=null;re();},8000);
 }
 
@@ -1402,6 +1401,8 @@ function procShrimp(){
   var proc=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_shrimp"){proc=STOCK[i];break;}}
   if(!raw||!proc)return alert("在庫データが見つかりません");
   if(raw.stock<cases){if(!confirm("原材料在庫("+raw.stock+"ケース)より多い数量です。続けますか？"))return;}
+  if(el)el.value="";
+  withFreshStock(function(){
   raw.stock=Math.max(0,raw.stock-cases);
   var produced=Math.round(cases*600);
   proc.stock+=produced;
@@ -1410,15 +1411,15 @@ function procShrimp(){
     {mat:"加工済みエビ（むきエビ）",qty:-produced,u:"尾",prod:"加工完了",remain:proc.stock,sid:proc.id}
   ]});
   alert("✅ 加工完了！\n冷凍エビ "+cases+"ケース → むきエビ "+produced+"尾\n\n原材料残: "+raw.stock+"ケース\n加工済み残: "+proc.stock+"尾");
-  if(el)el.value="";
-  re();
+  });
 }
 function recvSt(id,prefix){
   var pfx=prefix||"rcv_";
   var el=document.getElementById(pfx+id)||document.getElementById("rcv_"+id);
   var q=parseFloat(el?el.value:0)||0;
   if(!q)return alert("入庫数を入力してください");
-  for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i].stock=Math.round((STOCK[i].stock+q)*100)/100;alert("✅ 入庫完了\n"+STOCK[i].n+" "+q+STOCK[i].u+"\n現在庫: "+STOCK[i].stock+STOCK[i].u);break;}}saveStockToCloud();re();
+  if(el)el.value="";
+  withFreshStock(function(){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i].stock=Math.round((STOCK[i].stock+q)*100)/100;alert("✅ 入庫完了\n"+STOCK[i].n+" "+q+STOCK[i].u+"\n現在庫: "+STOCK[i].stock+STOCK[i].u);break;}}});
 }
 
 // ============================================================
@@ -1569,29 +1570,31 @@ function procCheese(){
   var proc=null;for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="proc_cheese"){proc=STOCK[i];break;}}
   if(!raw||!proc)return alert("在庫データが見つかりません");
   if(raw.stock<qty){if(!confirm("原材料在庫("+raw.stock+"個)より多い数量です。続けますか？"))return;}
+  if(el)el.value="";
+  withFreshStock(function(){
   raw.stock=Math.max(0,raw.stock-qty);
   proc.stock+=qty;
   alert("✅ 燻製チーズ加工完了！\n原材料 -"+qty+"個 → 燻製済み +"+qty+"個\n\n原材料残: "+raw.stock+"個\n燻製済み在庫: "+proc.stock+"個");
-  if(el)el.value="";
-  saveStockToCloud();
-  re();
+  });
 }
 function doNyuko(){
   var vis=[];for(var i=0;i<STOCK.length;i++){if(!STOCK[i]._hidden&&STOCK[i].type!=="box")vis.push(STOCK[i]);}
-  var updated=[];
+  var adds=[];
   for(var i=0;i<vis.length;i++){
     var s=vis[i];
     var el=document.getElementById("nyu_"+s.id);
     if(!el||el.value==="")continue;
     var add=parseFloat(el.value);
     if(isNaN(add)||add<=0)continue;
-    s.stock=Math.round((s.stock+add)*100)/100;
-    updated.push(s.n+" + "+add+s.u+" = "+s.stock+s.u);
+    adds.push({s:s,add:add});
   }
-  if(!updated.length){alert("入庫数を1つ以上入力してください");return;}
-  alert("✅ 入庫完了！\n\n" + updated.join("\n"));
-  saveStockToCloud();
-  cm();
+  if(!adds.length){alert("入庫数を1つ以上入力してください");return;}
+  A.modal=null;re();
+  withFreshStock(function(){
+    var updated=[];
+    for(var i=0;i<adds.length;i++){var s=adds[i].s;s.stock=Math.round((s.stock+adds[i].add)*100)/100;updated.push(s.n+" + "+adds[i].add+s.u+" = "+s.stock+s.u);}
+    alert("✅ 入庫完了！\n\n" + updated.join("\n"));
+  });
 }
 function cm(){var wasSE=A.modal&&A.modal.type==="se";A.modal=null;if(wasSE){clearTimeout(_stSaveT);saveStockToCloud();}re();}
 function rSlip(){
