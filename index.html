@@ -1761,15 +1761,8 @@ function dailyMessageText(d){
   L.push("【"+d.slice(5).replace("-","/")+"（"+wd[dow]+"）作業指示】");
   // --- 作業指示（未出荷の発注）
   var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
-  L.push("");L.push("■ 出荷（未出荷 "+pending.length+"件）");
-  if(!pending.length)L.push("・未出荷の発注はありません");
-  var TEMP_ORDER={ambient:1,season:2,chilled:3,frozen:4,other:5};
-  for(var i=0;i<pending.length;i++){
-    var o=pending[i];var pids=Object.keys(o.it);
-    pids.sort(function(a,b){var pa=null,pb=null,ia=999,ib=999;for(var k=0;k<PD.length;k++){if(PD[k].id===a){pa=PD[k];ia=k;}if(PD[k].id===b){pb=PD[k];ib=k;}}var ga=pa?(pa.riceShip?0:(TEMP_ORDER[pa.temp]||5)):9,gb=pb?(pb.riceShip?0:(TEMP_ORDER[pb.temp]||5)):9;return (ga*1000+ia)-(gb*1000+ib);});
-    var parts=[];for(var j=0;j<pids.length;j++){var pp=null;for(var k=0;k<PD.length;k++){if(PD[k].id===pids[j]){pp=PD[k];break;}}var tag=pp&&pp.riceShip?"[直送]":pp&&pp.temp==="frozen"?"[冷]":"";parts.push(pn(pids[j])+" "+qd(pids[j],o.it[pids[j]])+tag);}
-    L.push("・"+o.s.replace("天ぷらとワイン大塩　","")+"（"+o.d.slice(5).replace("-","/")+"）："+parts.join("、"));
-  }
+  var stores=[];for(var i=0;i<pending.length;i++)stores.push(pending[i].s.replace("天ぷらとワイン大塩　",""));
+  L.push("");L.push("■ 出荷：未出荷 "+pending.length+"件"+(stores.length?"（"+stores.join("・")+"）":"")+"　※作業指示書は画像を参照");
   // 品目合計
   var tot={};for(var i=0;i<pending.length;i++){var ks=Object.keys(pending[i].it);for(var j=0;j<ks.length;j++)tot[ks[j]]=(tot[ks[j]]||0)+pending[i].it[ks[j]];}
   var tk=Object.keys(tot);

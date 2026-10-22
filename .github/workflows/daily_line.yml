@@ -1,15 +1,18 @@
-name: 毎朝のLINE送信（作業指示＋今日の担当）
+name: 毎朝のLINE送信（作業指示書の画像＋今日の担当）
 
 on:
-  # 本番運用を始めるときは下の2行のコメント（#）を外す：毎日 6:30 JST
+  # 本番運用を始めるときは下の2行の「#」を外す：毎日 6:30 JST
   # schedule:
   #   - cron: '30 21 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'テスト（1=送信せず文面を表示するだけ）'
+        description: 'テスト（1=送信せず、文面と画像の作成だけ）'
         required: false
         default: '1'
+
+permissions:
+  contents: write
 
 jobs:
   send:
@@ -19,7 +22,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: 文面を作ってLINEへ送信
+      - name: Playwright（Chromium）を準備
+        run: |
+          npm init -y >/dev/null
+          npm i playwright@1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: 文面と作業指示書の画像を作成（まだ送らない）
         env:
-          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+          DRY_RUN: '1'
+        run: node scripts/daily_line.js
+      - name: 画像をリポジトリに保存（Vercelで公開される）
+        id: publish
+        run: |
+          git config user.name "daily-line-bot"
+          git config user.email "noreply@example.com"
+          git add daily/workorder.jpg
+          if git diff --cached --quiet; then echo "no change"; else git commit -m "daily: 作業指示書の画像 $(TZ=Asia/Tokyo date +%F)"; git push; fi
+      - name: Vercelの公開を待つ
+        run: |
+          H=$(sha256sum daily/workorder.jpg | cut -c1-16)
+          for i in $(seq 1 30); do
+            R=$(curl -s "https://tanba-hatchu.vercel.app/daily/workorder.jpg?x=$RANDOM" | sha256sum | cut -c1-16)
+            if [ "$R" = "$H" ]; then echo "公開済み"; exit 0; fi
+            sleep 10
+          done
+          echo "公開を確認できませんでした（送信は続行）"
+      - name: LINEへ送信
+        if: ${{ github.event.inputs.dry_run != '1' }}
+        env:
+          DRY_RUN: '0'
+          IMAGE_URL: https://tanba-hatchu.vercel.app/daily/workorder.jpg
         run: node scripts/daily_line.js
