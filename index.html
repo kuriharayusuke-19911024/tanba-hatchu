@@ -1507,7 +1507,7 @@ function dlRpCSV(){
 // ============================================================
 // 出勤表（加工スタッフ）— stock_items の id="cfg_schedule" 行にJSON保存
 // ============================================================
-var SCH_STAFF=["木村","栗原美智代","藤原留目","藤原愛香"];
+var SCH_STAFF=["木村みき","栗原亜実","栗原美智代","藤原アルメ","藤原愛華"];
 var SCH={days:{}};var _schDirty={};var _schSaveT=null;
 function loadSched(cb){
   supaFetch("GET","stock_items?select=name&id=eq.cfg_schedule").then(function(r){return r.json();}).then(function(d){
