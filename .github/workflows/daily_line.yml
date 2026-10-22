@@ -1,0 +1,25 @@
+name: 毎朝のLINE送信（作業指示＋今日の担当）
+
+on:
+  # 本番運用を始めるときは下の2行のコメント（#）を外す：毎日 6:30 JST
+  # schedule:
+  #   - cron: '30 21 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'テスト（1=送信せず文面を表示するだけ）'
+        required: false
+        default: '1'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 文面を作ってLINEへ送信
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: node scripts/daily_line.js

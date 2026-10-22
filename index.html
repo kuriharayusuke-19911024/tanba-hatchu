@@ -1653,7 +1653,8 @@ function rPlan(){
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">👷 今日の担当</div>';
   h+='<div style="font-size:13px;color:#6b7280;margin-bottom:10px">出勤表・未出荷の発注・在庫から自動で作業を割り振ります。追加の指示は下のフォームから。</div>';
   h+='<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:12px;color:#6b7280">日付</label><input type="date" value="'+d+'" onchange="A.planD=this.value;re()" style="padding:7px"><span style="font-size:13px;font-weight:600">'+wd[dow]+'曜'+(P.isShip?'　🚚 発送日':'')+'</span>';
-  h+='<button onclick="doPrint(\'plan-print\')" class="no-print" style="margin-left:auto;padding:7px 12px;font-size:12px">🖨 印刷</button></div>';
+  h+='<button onclick="doPrint(\'plan-print\')" class="no-print" style="margin-left:auto;padding:7px 12px;font-size:12px">🖨 印刷</button><button onclick="A.showLineTxt=!A.showLineTxt;re()" class="no-print" style="padding:7px 12px;font-size:12px">💬 LINE文面</button></div>';
+  if(A.showLineTxt){h+='<div class="card no-print" style="margin-bottom:10px"><div style="font-size:12px;color:#6b7280;margin-bottom:6px">毎朝LINEに送られる文面（プレビュー）</div><textarea readonly rows="14" style="width:100%;font-size:12px;padding:8px;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:8px">'+esc(dailyMessageText(d))+'</textarea></div>';}
   h+='<div id="plan-print">';
   h+='<div style="font-size:12px;color:#6b7280;margin-bottom:8px">出勤（'+P.src+'）：'+(P.people.length?P.people.join('・'):'なし')+'　<button onclick="sTab(\'sched\')" class="no-print" style="padding:2px 8px;font-size:11px">出勤表を編集</button></div>';
   if(!P.people.length)h+='<div class="card" style="text-align:center;color:#6b7280;padding:24px">この日の出勤者がいません。出勤表で○を付けてください。</div>';
@@ -1750,6 +1751,47 @@ function rSupplierOrder(){
   h+='</div>';
   setTimeout(supPreview,0);
   return h;
+}
+// ============================================================
+// 朝のLINE用テキスト（作業指示＋今日の担当）— scripts/daily_line.js からも呼ばれる
+// ============================================================
+function dailyMessageText(d){
+  d=d||today();var wd=["日","月","火","水","木","金","土"];var dow=new Date(d+"T00:00:00").getDay();
+  var L=[];
+  L.push("【"+d.slice(5).replace("-","/")+"（"+wd[dow]+"）作業指示】");
+  // --- 作業指示（未出荷の発注）
+  var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
+  L.push("");L.push("■ 出荷（未出荷 "+pending.length+"件）");
+  if(!pending.length)L.push("・未出荷の発注はありません");
+  var TEMP_ORDER={ambient:1,season:2,chilled:3,frozen:4,other:5};
+  for(var i=0;i<pending.length;i++){
+    var o=pending[i];var pids=Object.keys(o.it);
+    pids.sort(function(a,b){var pa=null,pb=null,ia=999,ib=999;for(var k=0;k<PD.length;k++){if(PD[k].id===a){pa=PD[k];ia=k;}if(PD[k].id===b){pb=PD[k];ib=k;}}var ga=pa?(pa.riceShip?0:(TEMP_ORDER[pa.temp]||5)):9,gb=pb?(pb.riceShip?0:(TEMP_ORDER[pb.temp]||5)):9;return (ga*1000+ia)-(gb*1000+ib);});
+    var parts=[];for(var j=0;j<pids.length;j++){var pp=null;for(var k=0;k<PD.length;k++){if(PD[k].id===pids[j]){pp=PD[k];break;}}var tag=pp&&pp.riceShip?"[直送]":pp&&pp.temp==="frozen"?"[冷]":"";parts.push(pn(pids[j])+" "+qd(pids[j],o.it[pids[j]])+tag);}
+    L.push("・"+o.s.replace("天ぷらとワイン大塩　","")+"（"+o.d.slice(5).replace("-","/")+"）："+parts.join("、"));
+  }
+  // 品目合計
+  var tot={};for(var i=0;i<pending.length;i++){var ks=Object.keys(pending[i].it);for(var j=0;j<ks.length;j++)tot[ks[j]]=(tot[ks[j]]||0)+pending[i].it[ks[j]];}
+  var tk=Object.keys(tot);
+  if(tk.length){L.push("");L.push("■ 品目合計");tk.sort(function(a,b){var ia=999,ib=999;for(var k=0;k<PD.length;k++){if(PD[k].id===a)ia=k;if(PD[k].id===b)ib=k;}return ia-ib;});for(var i=0;i<tk.length;i++)L.push("・"+pn(tk[i])+"："+qd(tk[i],tot[tk[i]]));}
+  // --- 今日の担当
+  var P=buildPlan(d);
+  L.push("");L.push("■ 今日の担当（出勤："+(P.people.length?P.people.join("・"):"なし")+"）");
+  for(var i=0;i<P.people.length;i++){
+    var nm=P.people[i];var items=P.plan[nm]||[];
+    var mine=[];for(var j=0;j<P.extra.length;j++){if(P.extra[j].who===nm&&!P.extra[j].done)mine.push(P.extra[j]);}
+    L.push("👤 "+nm+(PLAN_TIME[nm]?"（"+PLAN_TIME[nm]+"）":""));
+    if(!items.length&&!mine.length)L.push("　・割り当てなし");
+    for(var j=0;j<items.length;j++)L.push("　・"+items[j].t);
+    for(var j=0;j<mine.length;j++)L.push("　・📝 "+mine[j].text);
+  }
+  var common=[];for(var j=0;j<P.extra.length;j++){if((!P.extra[j].who||P.people.indexOf(P.extra[j].who)<0)&&!P.extra[j].done)common.push(P.extra[j]);}
+  if(common.length){L.push("📝 全員・その他");for(var j=0;j<common.length;j++)L.push("　・"+(common[j].who?common[j].who+"：":"")+common[j].text);}
+  // --- 在庫アラート
+  var al=getStockAlerts();
+  if(al.length){L.push("");L.push("■ 在庫アラート");for(var i=0;i<al.length;i++)L.push("・"+(al[i].empty?"🔴":"🟡")+" "+al[i].n+"："+al[i].stock+al[i].u+"（発注点 "+al[i].min+al[i].u+"）");}
+  L.push("");L.push("詳細はアプリ → https://tanba-hatchu.vercel.app");
+  return L.join("\n");
 }
 function rMaster(){
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">⚙️ 商品マスタ</div>';
