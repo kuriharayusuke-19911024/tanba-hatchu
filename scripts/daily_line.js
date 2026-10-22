@@ -26,7 +26,7 @@ async function captureWorkOrder(outPath){
   const page=await browser.newPage({viewport:{width:1200,height:900},deviceScaleFactor:2});
   await page.goto(APP_URL+"/?v="+Date.now(),{waitUntil:"networkidle"});
   await page.waitForTimeout(2500);
-  await page.evaluate(()=>{A.user={r:"admin",n:"自動"};A.tab="workorder";re();});
+  await page.evaluate(()=>{A.user={r:"admin",n:"自動"};A.tab="workorder";re();var nav=document.querySelector(".nav");if(nav)nav.style.display="none";document.body.style.paddingTop="0";});
   await page.waitForTimeout(1000);
   const target=await page.$("#woPrintArea");
   if(!target)throw new Error("作業指示書の要素が見つかりません");
