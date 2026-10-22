@@ -304,11 +304,11 @@ var TEMP_COLOR={chilled:"#0ea5e9",frozen:"#6366f1",ambient:"#f59e0b",season:"#10
 var STOCK_MAP={
   rice:     [{sid:"s_rice",     qty:1}],
   // ポテトサラダ 1発注=3kg（分量表より。ベーコンは廃止）
-  potato:   [{sid:"s_potato",qty:2.4},{sid:"s_cheese_g",qty:60},{sid:"s_egg",qty:3},{sid:"s_mayo",qty:0.3},
+  potato:   [{sid:"s_potato",qty:2.4},{sid:"s_cheese_g",qty:60},{sid:"s_egg",qty:3},{sid:"s_mayo",qty:300},
              {sid:"s_crazysalt",qty:9},{sid:"s_salt",qty:12},{sid:"s_bpepper",qty:2},{sid:"s_ajinomoto",qty:15},
              {sid:"s_sugar",qty:27},{sid:"s_vinegar",qty:27},{sid:"s_vacpack",qty:1}],
   // 長いもわさび漬け 1発注=1500g：長いも1.8kg・浅漬けの素500ml(1.8L本の0.28本)・粉わさび45g
-  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:0.28},{sid:"s_wasabi",qty:0.045},{sid:"s_vacpack",qty:1}],
+  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:504},{sid:"s_wasabi",qty:0.045},{sid:"s_vacpack",qty:1}],
   mushroom: [{sid:"s_mushroom", qty:20}],     // 1発注=20個
   cheese:   [{sid:"proc_cheese",qty:1},{sid:"s_vacpack",qty:0.25}], // 4個で真空パック1枚      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
@@ -374,8 +374,8 @@ var STOCK=[
   {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
   {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:8,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
   {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"尾",stock:0,minStock:3000,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
-  {id:"s_mayo",n:"マヨネーズ（1kg入り）",type:"ingredient",cat:"seasoning",u:"本",stock:1,minStock:20,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
-  {id:"s_asazuke",n:"浅漬けの素（1.8L）",type:"ingredient",cat:"seasoning",u:"本",stock:1,minStock:20,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_mayo",n:"マヨネーズ（1本1kg）",type:"ingredient",cat:"seasoning",u:"g",pack:1000,stock:1000,minStock:20000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_asazuke",n:"浅漬けの素（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",pack:1800,stock:1800,minStock:36000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_wasabi",n:"粉わさび",type:"ingredient",cat:"seasoning",u:"kg",stock:1,minStock:2,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_cheese_g",n:"チーズ（ポテサラ用）",type:"ingredient",cat:"chilled",u:"g",stock:0,minStock:3000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_egg",n:"卵",type:"ingredient",cat:"chilled",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
@@ -384,15 +384,15 @@ var STOCK=[
   {id:"s_bpepper",n:"ブラックペッパー",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_ajinomoto",n:"味の素",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_sugar",n:"砂糖",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
-  {id:"s_vinegar",n:"酢",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_vinegar",n:"酢（1本1.8L）",type:"ingredient",cat:"seasoning",u:"g",pack:1800,stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_kuroedamame",n:"丹波黒枝豆",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:["黒枝豆仕入れ"],linkedPid:"kuroedamame"},
   {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"本",stock:0,minStock:0,weeklyNeed:0,unitCost:200,linked:["大根仕入れ"],linkedPid:"daikon"},
   {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:20,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"gyu"},
   {id:"s_aonegi",n:"青ネギ",type:"ingredient",cat:"fresh",u:"本",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_ginger",n:"生姜",type:"ingredient",cat:"fresh",u:"g",stock:0,minStock:500,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_daikon_p",n:"大根おろし（自社製・パック）",type:"processed",cat:"frozen",u:"パック",stock:0,minStock:105,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
-  {id:"s_sake",n:"酒（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",stock:0,minStock:9000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
-  {id:"s_mirin",n:"みりん（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",stock:0,minStock:9000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_sake",n:"酒（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",pack:1800,stock:0,minStock:9000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
+  {id:"s_mirin",n:"みりん（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",pack:1800,stock:0,minStock:9000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"cfg_gyu_packs",n:"【設定】牛すじ10kg仕込みで出来るパック数",type:"ingredient",cat:"other",u:"パック",stock:8,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_vacpack",n:"真空パック（袋）",type:"ingredient",cat:"other",u:"枚",stock:0,minStock:300,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:0,minStock:20,weeklyNeed:0,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
@@ -407,6 +407,7 @@ var OR=[];
 var SLOG=[];
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function thisMonth(){return today().slice(0,7);}
+function stockDisp(s){var v=Math.round(s.stock*100)/100;if(s.pack){return fmt(v)+s.u+"（約"+(Math.round(v/s.pack*10)/10)+"本）";}return v+s.u;}
 function esc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
 var A={user:null,tab:"order",modal:null,chk:{},bct:{},cst:{},eqt:{},ico:"tanba",ist:"all",imn:thisMonth(),hf:"all",stCat:"all",dashM:"",woDate:"",rpM:"",rpSt:"all",rpRg:"all"};
 var OF={s:"",q:{},done:false,tanto:"",stockAlerts:[]};
@@ -559,13 +560,14 @@ function getTabs(){
     {id:"dash",lb:"集計",ic:"📊",r:["admin"]},
     {id:"invoice",lb:"請求書",ic:"🧾",r:["admin"]},
     {id:"stock",lb:"在庫",ic:"📦",r:["admin"]},
+    {id:"sched",lb:"出勤表",ic:"📅",r:["admin"]},
     {id:"report",lb:"レポート",ic:"📈",r:["admin"]},
     {id:"master",lb:"商品",ic:"⚙️",r:["admin"]}
   ];
   var out=[];for(var i=0;i<all.length;i++){if(all[i].r.indexOf(A.user.r)>=0)out.push(all[i]);}
   return out;
 }
-function sTab(t){if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud();loadStockFromCloud(function(){re();});}}
+function sTab(t){if(t==="sched")loadSched(function(){re();});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud();loadStockFromCloud(function(){re();});}}
 function goBack(){if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}}
 function rPage(){
   if(A.tab==="order")return rOrder();
@@ -575,6 +577,7 @@ function rPage(){
   if(A.tab==="dash")return rDash();
   if(A.tab==="invoice")return rInv();
   if(A.tab==="stock")return rStock();
+  if(A.tab==="sched")return rSched();
   if(A.tab==="report")return rReport();
   if(A.tab==="master")return rMaster();
   return "";
@@ -1357,7 +1360,7 @@ function rStock(){
     h+='<div style="display:grid;grid-template-columns:1fr 60px 65px 65px;gap:4px;align-items:center;padding:9px 11px;border-bottom:'+(isLast?"none":"1px solid #e2e8f0")+';background:'+bg+'">';
     h+='<div><div style="font-size:12px;font-weight:600">'+ic+' '+s.n+(s.mto?'<span style="background:#dcfce7;color:#166634;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px">受注</span>':'')+'</div>';
     h+='<div style="font-size:10px;color:#6b7280">'+(s.type==="raw"?"原材料":s.type==="processed"?"加工品":"副材料")+'</div></div>';
-    h+='<div style="text-align:right;font-size:13px;font-weight:700;color:'+sc+'">'+s.stock+'<span style="font-size:9px;color:#6b7280">'+s.u+'</span></div>';
+    h+='<div style="text-align:right;font-size:13px;font-weight:700;color:'+sc+'">'+s.stock+'<span style="font-size:9px;color:#6b7280">'+s.u+'</span>'+(s.pack?'<div style="font-size:9px;color:#6b7280;font-weight:400">約'+(Math.round(s.stock/s.pack*10)/10)+'本</div>':'')+'</div>';
     h+='<div style="text-align:right;font-size:12px;color:#374151">'+(s.weeklyNeed||0)+'<span style="font-size:9px;color:#6b7280">'+s.u+'</span></div>';
     h+='<div style="text-align:right"><button onclick="openSE(\''+s.id+'\')" style="padding:3px 7px;font-size:10px;background:#1e3a6e;color:#fff;border:none">編集</button></div></div>';
   }
@@ -1372,7 +1375,7 @@ function rStock(){
     var ts2=STOCK[ti];if(ts2._hidden||ts2.type==="box")continue;
     h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">';
     h+='<div style="flex:1;font-size:13px;font-weight:600">'+ts2.n+'</div>';
-    h+='<div style="font-size:12px;color:#6b7280;width:60px;text-align:right">現在:'+ts2.stock+ts2.u+'</div>';
+    h+='<div style="font-size:11px;color:#6b7280;width:80px;text-align:right">現在:'+stockDisp(ts2)+'</div>';
     h+='<input type="number" id="tana_'+ts2.id+'" placeholder="実数" style="width:70px;padding:5px 7px;font-size:13px;text-align:right" inputmode="numeric">';
     h+='<span style="font-size:12px;color:#6b7280;width:24px">'+ts2.u+'</span>';
     h+='</div>';
@@ -1428,7 +1431,7 @@ function recvSt(id,prefix){
   var q=parseFloat(el?el.value:0)||0;
   if(!q)return alert("入庫数を入力してください");
   if(el)el.value="";
-  withFreshStock(function(){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){STOCK[i].stock=Math.round((STOCK[i].stock+q)*100)/100;alert("✅ 入庫完了\n"+STOCK[i].n+" "+q+STOCK[i].u+"\n現在庫: "+STOCK[i].stock+STOCK[i].u);break;}}});
+  withFreshStock(function(){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){var st=STOCK[i];var addv=st.pack?q*st.pack:q;st.stock=Math.round((st.stock+addv)*100)/100;alert("✅ 入庫完了\n"+st.n+" "+q+(st.pack?"本":st.u)+"\n現在庫: "+stockDisp(st));break;}}});
 }
 
 // ============================================================
@@ -1501,6 +1504,68 @@ function dlRpCSV(){
 // ============================================================
 // 商品マスタ
 // ============================================================
+// ============================================================
+// 出勤表（加工スタッフ）— stock_items の id="cfg_schedule" 行にJSON保存
+// ============================================================
+var SCH_STAFF=["木村","栗原美智代","藤原留目","藤原愛香"];
+var SCH={days:{}};var _schDirty={};var _schSaveT=null;
+function loadSched(cb){
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_schedule").then(function(r){return r.json();}).then(function(d){
+    if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);SCH={days:o.days||{}};}catch(e){}}
+    if(cb)cb();
+  }).catch(function(e){console.error("sched load",e);if(cb)cb();});
+}
+function saveSched(){
+  // 他の人の入力を消さないよう、最新を読んでから自分の変更分だけ上書き
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_schedule").then(function(r){return r.json();}).then(function(d){
+    var cur={days:{}};if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);cur={days:o.days||{}};}catch(e){}}
+    var ks=Object.keys(_schDirty);
+    for(var i=0;i<ks.length;i++){var dk=ks[i].split("|");var day=dk[0],nm=dk[1];if(!cur.days[day])cur.days[day]={};var v=(SCH.days[day]||{})[nm];if(v)cur.days[day][nm]=v;else delete cur.days[day][nm];if(!Object.keys(cur.days[day]).length)delete cur.days[day];}
+    _schDirty={};SCH=cur;
+    return supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_schedule",name:JSON.stringify(SCH),stock:0});
+  }).then(function(r){if(r&&!r.ok)alert("出勤表の保存に失敗しました");re();}).catch(function(e){console.error("sched save",e);});
+}
+function schToggle(day,nm){
+  var cur=(SCH.days[day]||{})[nm]||"";var nx=cur===""?"on":cur==="on"?"off":"";
+  if(!SCH.days[day])SCH.days[day]={};if(nx)SCH.days[day][nm]=nx;else delete SCH.days[day][nm];
+  _schDirty[day+"|"+nm]=1;re();clearTimeout(_schSaveT);_schSaveT=setTimeout(saveSched,700);
+}
+function schMonths(){var out=[];var d=new Date();d.setDate(1);for(var i=0;i<3;i++){out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));d.setMonth(d.getMonth()+1);}return out;}
+function rSched(){
+  var me=A.schWho||"";var td=today();
+  var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">📅 出勤表（加工スタッフ）</div>';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:10px">自分の名前を選んで日付をタップ → ○出勤 → ×休み → 未定 の順に切り替わります。自動保存。</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">';
+  h+='<button onclick="A.schWho=\'\';re()" style="padding:7px 12px;font-size:13px;'+(me===""?"background:#1e3a6e;color:#fff;border-color:#1e3a6e":"")+'">👥 全員の一覧</button>';
+  for(var i=0;i<SCH_STAFF.length;i++){var nm=SCH_STAFF[i];h+='<button onclick="A.schWho=\''+nm+'\';re()" style="padding:7px 12px;font-size:13px;'+(me===nm?"background:#16a34a;color:#fff;border-color:#16a34a":"")+'">'+nm+'</button>';}
+  h+='</div>';
+  var ms=schMonths();var wd=["日","月","火","水","木","金","土"];
+  for(var mi=0;mi<ms.length;mi++){
+    var m=ms[mi];var y=parseInt(m.slice(0,4)),mo=parseInt(m.slice(5,7));
+    var first=new Date(y,mo-1,1);var last=new Date(y,mo,0).getDate();var startDow=first.getDay();
+    h+='<div class="card" style="padding:10px;margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px">'+y+'年'+mo+'月'+(me?'　<span style="color:#16a34a">'+me+'</span>':'')+'</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:11px;text-align:center;color:#6b7280;margin-bottom:3px">';
+    for(var w=0;w<7;w++)h+='<div style="'+(w===0?"color:#dc2626":w===6?"color:#1e40af":"")+'">'+wd[w]+'</div>';
+    h+='</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+    for(var b=0;b<startDow;b++)h+='<div></div>';
+    for(var d=1;d<=last;d++){
+      var day=m+"-"+String(d).padStart(2,"0");var dow=(startDow+d-1)%7;var rec=SCH.days[day]||{};var isT=day===td;
+      if(me){
+        var v=rec[me]||"";var bg=v==="on"?"#dcfce7":v==="off"?"#fee2e2":"#f8fafc";var fg=v==="on"?"#166534":v==="off"?"#b91c1c":"#9ca3af";var mark=v==="on"?"○":v==="off"?"×":"−";
+        h+='<button onclick="schToggle(\''+day+'\',\''+me+'\')" style="padding:0;height:46px;border-radius:6px;background:'+bg+';border:'+(isT?"2px solid #1e3a6e":"1px solid #e2e8f0")+';display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:10px;color:'+(dow===0?"#dc2626":dow===6?"#1e40af":"#6b7280")+'">'+d+'</span><span style="font-size:16px;font-weight:700;color:'+fg+'">'+mark+'</span></button>';
+      } else {
+        var ons=[],offs=[];for(var si=0;si<SCH_STAFF.length;si++){var nm2=SCH_STAFF[si];if(rec[nm2]==="on")ons.push(nm2);else if(rec[nm2]==="off")offs.push(nm2);}
+        h+='<div style="min-height:52px;border-radius:6px;background:'+(ons.length?"#f0fdf4":"#f8fafc")+';border:'+(isT?"2px solid #1e3a6e":"1px solid #e2e8f0")+';padding:2px;font-size:9px;line-height:1.25;overflow:hidden">';
+        h+='<div style="font-size:10px;font-weight:700;color:'+(dow===0?"#dc2626":dow===6?"#1e40af":"#374151")+'">'+d+'</div>';
+        for(var oi=0;oi<ons.length;oi++)h+='<div style="color:#166534">○'+ons[oi].slice(0,4)+'</div>';
+        for(var oi=0;oi<offs.length;oi++)h+='<div style="color:#b91c1c">×'+offs[oi].slice(0,4)+'</div>';
+        h+='</div>';
+      }
+    }
+    h+='</div></div>';
+  }
+  return h;
+}
 function rMaster(){
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">⚙️ 商品マスタ</div>';
   h+='<div style="font-size:13px;color:#6b7280;margin-bottom:14px">商品名をタップすると原価設定ができます</div>';
@@ -1560,10 +1625,10 @@ function rNyuko(){
     h+='<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;margin-bottom:6px;background:'+bg+';border-radius:8px;border:1px solid #e2e8f0">';
     h+='<div style="flex:1;min-width:0">';
     h+='<div style="font-size:13px;font-weight:600;color:#111">'+s.n+'</div>';
-    h+='<div style="font-size:11px;color:'+sc+';margin-top:1px">現在庫: '+s.stock+s.u+(s.stock<=0?" 🔴 在庫ゼロ":s.stock<s.minStock?" 🟡 少ない":"")+'</div>';
+    h+='<div style="font-size:11px;color:'+sc+';margin-top:1px">現在庫: '+stockDisp(s)+(s.stock<=0?" 🔴 在庫ゼロ":s.stock<s.minStock?" 🟡 少ない":"")+'</div>';
     h+='</div>';
     h+='<input type="number" id="nyu_'+s.id+'" placeholder="入庫数" style="width:76px;padding:7px 8px;font-size:14px;text-align:right;border-radius:8px;border:1px solid #e2e8f0" inputmode="numeric">';
-    h+='<span style="font-size:12px;color:#6b7280;width:28px;flex-shrink:0">'+s.u+'</span>';
+    h+='<span style="font-size:12px;color:#6b7280;width:28px;flex-shrink:0">'+(s.pack?"本":s.u)+'</span>';
     h+='</div>';
   }
   h+='<button onclick="doNyuko()" style="width:100%;padding:13px;background:#166534;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;margin-top:6px;cursor:pointer">入庫登録 ✓</button>';
@@ -1601,7 +1666,7 @@ function doNyuko(){
   A.modal=null;re();
   withFreshStock(function(){
     var updated=[];
-    for(var i=0;i<adds.length;i++){var s=adds[i].s;s.stock=Math.round((s.stock+adds[i].add)*100)/100;updated.push(s.n+" + "+adds[i].add+s.u+" = "+s.stock+s.u);}
+    for(var i=0;i<adds.length;i++){var s=adds[i].s;var addv=s.pack?adds[i].add*s.pack:adds[i].add;s.stock=Math.round((s.stock+addv)*100)/100;updated.push(s.n+" + "+adds[i].add+(s.pack?"本":s.u)+" = "+stockDisp(s));}
     alert("✅ 入庫完了！\n\n" + updated.join("\n"));
   });
 }
@@ -1669,9 +1734,9 @@ function rSE(){
   var s=SE;if(!s)return "";
   var h='<div class="ov" onclick="cm()"><div class="mb" onclick="event.stopPropagation()"><div class="mh"></div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:700">'+s.n+'</div><button onclick="cm()" style="background:none;border:none;font-size:22px;color:#6b7280">✕</button></div>';
-  h+='<div class="g2" style="margin-bottom:12px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">現在庫（'+s.u+'）</label><input type="number" value="'+s.stock+'" onchange="upSt(\''+s.id+'\',\'stock\',parseFloat(this.value)||0)"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">発注点（'+s.u+'）</label><input type="number" value="'+s.minStock+'" onchange="upSt(\''+s.id+'\',\'minStock\',parseFloat(this.value)||0)"></div></div>';
+  h+='<div class="g2" style="margin-bottom:12px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">現在庫（'+s.u+'）'+(s.pack?'　約'+(Math.round(s.stock/s.pack*10)/10)+'本':'')+'</label><input type="number" value="'+s.stock+'" onchange="upSt(\''+s.id+'\',\'stock\',parseFloat(this.value)||0)"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">発注点（'+s.u+'）</label><input type="number" value="'+s.minStock+'" onchange="upSt(\''+s.id+'\',\'minStock\',parseFloat(this.value)||0)"></div></div>';
   h+='<div class="g2" style="margin-bottom:12px"><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">週次必要数（'+s.u+'）</label><input type="number" value="'+(s.weeklyNeed||0)+'" onchange="upSt(\''+s.id+'\',\'weeklyNeed\',parseFloat(this.value)||0)" style="border-color:#93c5fd"></div><div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">仕入単価（円）</label><input type="number" value="'+s.unitCost+'" onchange="upSt(\''+s.id+'\',\'unitCost\',parseFloat(this.value)||0)"></div></div>';
-  h+='<div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-bottom:14px"><div style="font-size:12px;color:#166634;font-weight:700;margin-bottom:6px">📦 入庫登録</div><div style="display:flex;gap:8px;align-items:center"><input type="number" id="rcv_'+s.id+'" placeholder="入庫数" style="flex:1"><button class="bg" style="flex-shrink:0;padding:8px 14px" onclick="recvSt(\''+s.id+'\',\'rcv_\')">入庫 ✓</button></div></div>';
+  h+='<div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-bottom:14px"><div style="font-size:12px;color:#166634;font-weight:700;margin-bottom:6px">📦 入庫登録</div><div style="display:flex;gap:8px;align-items:center"><input type="number" id="rcv_'+s.id+'" placeholder="'+(s.pack?"入庫本数（1本="+s.pack+s.u+"）":"入庫数")+'" style="flex:1"><button class="bg" style="flex-shrink:0;padding:8px 14px" onclick="recvSt(\''+s.id+'\',\'rcv_\')">入庫 ✓</button></div></div>';
   h+='<button onclick="delSt(\''+s.id+'\')" style="width:100%;padding:10px;border:1px solid #fca5a5;color:#dc2626;background:#fff;margin-bottom:6px">この食材を削除</button>';
   h+='<button class="bp" style="width:100%;padding:11px" onclick="cm()">完了</button></div></div>';
   return h;
