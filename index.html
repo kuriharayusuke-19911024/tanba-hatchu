@@ -560,6 +560,7 @@ function getTabs(){
     {id:"dash",lb:"集計",ic:"📊",r:["admin"]},
     {id:"invoice",lb:"請求書",ic:"🧾",r:["admin"]},
     {id:"stock",lb:"在庫",ic:"📦",r:["admin"]},
+    {id:"plan",lb:"今日の担当",ic:"👷",r:["admin"]},
     {id:"sched",lb:"出勤表",ic:"📅",r:["admin"]},
     {id:"report",lb:"レポート",ic:"📈",r:["admin"]},
     {id:"master",lb:"商品",ic:"⚙️",r:["admin"]}
@@ -567,7 +568,7 @@ function getTabs(){
   var out=[];for(var i=0;i<all.length;i++){if(all[i].r.indexOf(A.user.r)>=0)out.push(all[i]);}
   return out;
 }
-function sTab(t){if(t==="sched")loadSched(function(){re();});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud();loadStockFromCloud(function(){re();});}}
+function sTab(t){if(t==="sched")loadSched(function(){re();});if(t==="plan")loadSched(function(){loadTasks(function(){re();});});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud();loadStockFromCloud(function(){re();});}}
 function goBack(){if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}}
 function rPage(){
   if(A.tab==="order")return rOrder();
@@ -578,6 +579,7 @@ function rPage(){
   if(A.tab==="invoice")return rInv();
   if(A.tab==="stock")return rStock();
   if(A.tab==="sched")return rSched();
+  if(A.tab==="plan")return rPlan();
   if(A.tab==="report")return rReport();
   if(A.tab==="master")return rMaster();
   return "";
@@ -1564,6 +1566,114 @@ function rSched(){
     }
     h+='</div></div>';
   }
+  return h;
+}
+// ============================================================
+// 今日の担当（作業の自動割り振り）— 追加指示は stock_items の id="cfg_tasks" 行にJSON保存
+// ============================================================
+var TASKS={list:[]};
+function loadTasks(cb){
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_tasks").then(function(r){return r.json();}).then(function(d){
+    if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);TASKS={list:o.list||[]};}catch(e){}}
+    if(cb)cb();
+  }).catch(function(e){console.error("tasks load",e);if(cb)cb();});
+}
+function saveTasks(){
+  // 直近90日より古い完了済みは捨てる
+  var cut=new Date();cut.setDate(cut.getDate()-90);var cs=cut.getFullYear()+"-"+String(cut.getMonth()+1).padStart(2,"0")+"-"+String(cut.getDate()).padStart(2,"0");
+  TASKS.list=TASKS.list.filter(function(t){return !(t.done&&t.d<cs);});
+  supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_tasks",name:JSON.stringify(TASKS),stock:0}).then(function(r){if(!r.ok)alert("指示の保存に失敗しました");}).catch(function(e){console.error("tasks save",e);});
+}
+function addTask(){
+  var d=document.getElementById("tk_d").value||planDate();var who=document.getElementById("tk_w").value;var tx=document.getElementById("tk_t").value.trim();
+  if(!tx)return alert("作業内容を入力してください");
+  TASKS.list.push({id:Date.now(),d:d,who:who,text:tx,done:false});saveTasks();re();
+}
+function toggleTask(id){for(var i=0;i<TASKS.list.length;i++){if(TASKS.list[i].id===id){TASKS.list[i].done=!TASKS.list[i].done;break;}}saveTasks();re();}
+function delTask(id){if(!confirm("この指示を削除しますか？"))return;TASKS.list=TASKS.list.filter(function(t){return t.id!==id;});saveTasks();re();}
+function planDate(){return A.planD||today();}
+// 出勤表に入力があればそれを、無ければ基本シフトを使う
+var PLAN_DEFAULT={1:["栗原美智代","栗原亜実","木村みき"],4:["栗原美智代","栗原亜実","木村みき"],2:["栗原亜実","木村みき"],3:["栗原亜実","木村みき"],5:["栗原亜実","木村みき"],6:["藤原アルメ","藤原愛華"],0:["藤原アルメ","藤原愛華"]};
+var PLAN_TIME={"栗原美智代":"7:00〜11:00","栗原亜実":"8:00〜","木村みき":"8:30〜","藤原アルメ":"","藤原愛華":""};
+function planAttendees(d){
+  var rec=SCH.days[d]||{};var ons=[];var any=false;
+  for(var i=0;i<SCH_STAFF.length;i++){var nm=SCH_STAFF[i];if(rec[nm]){any=true;if(rec[nm]==="on")ons.push(nm);}}
+  if(any)return {list:ons,src:"出勤表"};
+  var dow=new Date(d+"T00:00:00").getDay();return {list:(PLAN_DEFAULT[dow]||[]).slice(),src:"基本シフト"};
+}
+function planCeil(v){return Math.max(0,Math.ceil(v));}
+function buildPlan(d){
+  var dow=new Date(d+"T00:00:00").getDay();var isShip=(dow===1||dow===4);
+  var att=planAttendees(d);var people=att.list;
+  var plan={};for(var i=0;i<people.length;i++)plan[people[i]]=[];
+  var notes=[];
+  var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
+  var sum=function(pid){var t=0;for(var i=0;i<pending.length;i++)t+=(pending[i].it[pid]||0);return t;};
+  var has=function(nm){return people.indexOf(nm)>=0;};
+  var push=function(nm,txt,kind){if(plan[nm])plan[nm].push({t:txt,k:kind||""});};
+  var anyone=function(txt,kind){ // 加工担当の優先順：木村→アルメ→愛華→亜実→美智代
+    var order=["木村みき","藤原アルメ","藤原愛華","栗原亜実","栗原美智代"];
+    for(var i=0;i<order.length;i++){if(has(order[i])){push(order[i],txt,kind);return;}}
+    notes.push("担当者なし："+txt);
+  };
+  // --- 固定業務
+  if(has("栗原亜実")){push("栗原亜実","野菜の集荷（椎茸回収など）","fixed");push("栗原亜実","食品の指示出し・発注業務・在庫管理","fixed");}
+  // --- 発送日（月・木）
+  if(isShip){
+    var stores=[];for(var i=0;i<pending.length;i++)stores.push(pending[i].s.replace("天ぷらとワイン大塩　",""));
+    var shipTxt="発送業務（未出荷 "+pending.length+"件"+(stores.length?"："+stores.join("・"):"")+"）→ 出荷タブでチェック";
+    if(has("栗原亜実"))push("栗原亜実",shipTxt,"ship");else anyone(shipTxt,"ship");
+    var potato=sum("potato");var yam=sum("yam");
+    var cooks=[];if(has("栗原美智代"))cooks.push("栗原美智代");if(has("木村みき"))cooks.push("木村みき");
+    if(!cooks.length&&people.length)cooks.push(people[0]);
+    if(potato>0){for(var i=0;i<cooks.length;i++)push(cooks[i],"ポテトサラダ仕込み "+potato+"パック（3kg×"+potato+"）"+(cooks.length>1?"〔"+cooks.join("・")+"で分担〕":""),"cook");}
+    if(yam>0){for(var i=0;i<cooks.length;i++)push(cooks[i],"長いも仕込み "+yam+"パック"+(cooks.length>1?"〔"+cooks.join("・")+"で分担〕":""),"cook");}
+    if(potato===0&&yam===0)notes.push("未出荷の発注にポテトサラダ・長いもはありません");
+  }
+  // --- 加工作業（在庫が少ない順。大根おろし→エビを優先）
+  var procs=[];
+  var dp=getStock("s_daikon_p");if(dp){var need=planCeil(sum("daikon")*20-dp.stock);var low=dp.stock<=dp.minStock;if(need>0||low){procs.push({pri:0,ratio:dp.minStock?dp.stock/dp.minStock:0,txt:"大根おろし "+Math.max(need,low?planCeil(dp.minStock-dp.stock):0)+"パック（現在庫 "+dp.stock+"パック"+(need>0?"・未出荷分で"+need+"パック不足":"")+"）"});}}
+  var ps=getStock("proc_shrimp");if(ps){var needS=planCeil(sum("shrimp")*300-ps.stock);var lowS=ps.stock<=ps.minStock;if(needS>0||lowS){var tail=Math.max(needS,lowS?planCeil(ps.minStock-ps.stock):0);var cases=planCeil(tail/600);procs.push({pri:1,ratio:ps.minStock?ps.stock/ps.minStock:0,txt:"むきエビ加工 "+cases+"ケース（約"+(cases*600)+"尾・現在庫 "+ps.stock+"尾）"});}}
+  var pc=getStock("proc_cheese");if(pc&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）"});}
+  // 牛すじ：週1回10kg（火曜を目安）
+  if(dow===2){procs.push({pri:3,ratio:1,txt:"牛すじ煮込み 10kg仕込み（週1回の目安。在庫に余裕があれば多めでも可）"});}
+  procs.sort(function(a,b){return a.pri-b.pri||a.ratio-b.ratio;});
+  // 配分：加工担当者（木村・アルメ・愛華）に順番に
+  var workers=[];var wo=["木村みき","藤原アルメ","藤原愛華"];for(var i=0;i<wo.length;i++){if(has(wo[i]))workers.push(wo[i]);}
+  if(!workers.length){var fb=["栗原亜実","栗原美智代"];for(var i=0;i<fb.length;i++){if(has(fb[i]))workers.push(fb[i]);}}
+  for(var i=0;i<procs.length;i++){var w=workers.length?workers[i%workers.length]:null;if(w)push(w,(isShip?"（仕込み後）":"")+procs[i].txt,"proc");else notes.push("担当者なし："+procs[i].txt);}
+  if(!procs.length)notes.push("在庫が発注点を下回っている加工品はありません");
+  // 追加指示
+  var extra=[];for(var i=0;i<TASKS.list.length;i++){if(TASKS.list[i].d===d)extra.push(TASKS.list[i]);}
+  return {people:people,src:att.src,plan:plan,notes:notes,extra:extra,isShip:isShip};
+}
+function rPlan(){
+  var d=planDate();var P=buildPlan(d);var wd=["日","月","火","水","木","金","土"];var dow=new Date(d+"T00:00:00").getDay();
+  var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">👷 今日の担当</div>';
+  h+='<div style="font-size:13px;color:#6b7280;margin-bottom:10px">出勤表・未出荷の発注・在庫から自動で作業を割り振ります。追加の指示は下のフォームから。</div>';
+  h+='<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="font-size:12px;color:#6b7280">日付</label><input type="date" value="'+d+'" onchange="A.planD=this.value;re()" style="padding:7px"><span style="font-size:13px;font-weight:600">'+wd[dow]+'曜'+(P.isShip?'　🚚 発送日':'')+'</span>';
+  h+='<button onclick="doPrint(\'plan-print\')" class="no-print" style="margin-left:auto;padding:7px 12px;font-size:12px">🖨 印刷</button></div>';
+  h+='<div id="plan-print">';
+  h+='<div style="font-size:12px;color:#6b7280;margin-bottom:8px">出勤（'+P.src+'）：'+(P.people.length?P.people.join('・'):'なし')+'　<button onclick="sTab(\'sched\')" class="no-print" style="padding:2px 8px;font-size:11px">出勤表を編集</button></div>';
+  if(!P.people.length)h+='<div class="card" style="text-align:center;color:#6b7280;padding:24px">この日の出勤者がいません。出勤表で○を付けてください。</div>';
+  for(var i=0;i<P.people.length;i++){
+    var nm=P.people[i];var items=P.plan[nm]||[];
+    var mine=[];for(var j=0;j<P.extra.length;j++){if(P.extra[j].who===nm)mine.push(P.extra[j]);}
+    h+='<div class="card" style="border-left:4px solid #1e3a6e;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><div style="font-weight:700;font-size:15px">'+nm+'</div><div style="font-size:12px;color:#6b7280">'+(PLAN_TIME[nm]||'')+'</div></div>';
+    if(!items.length&&!mine.length)h+='<div style="font-size:13px;color:#6b7280">割り当てなし（追加指示を入れてください）</div>';
+    for(var j=0;j<items.length;j++){var it=items[j];var ic=it.k==="ship"?"🚚":it.k==="cook"?"🥔":it.k==="proc"?"🔪":"📌";h+='<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><span>'+ic+'</span><span>'+it.t+'</span></div>';}
+    for(var j=0;j<mine.length;j++){var t=mine[j];h+='<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><input type="checkbox" '+(t.done?"checked":"")+' onchange="toggleTask('+t.id+')" style="width:18px;height:18px"><span style="flex:1;'+(t.done?"text-decoration:line-through;color:#9ca3af":"")+'">📝 '+esc(t.text)+'</span><button class="no-print" onclick="delTask('+t.id+')" style="padding:2px 7px;font-size:11px;color:#dc2626;border-color:#fca5a5">✕</button></div>';}
+    h+='</div>';
+  }
+  var common=[];for(var j=0;j<P.extra.length;j++){if(!P.extra[j].who||P.people.indexOf(P.extra[j].who)<0)common.push(P.extra[j]);}
+  if(common.length){h+='<div class="card" style="border-left:4px solid #92400e;margin-bottom:10px"><div style="font-weight:700;margin-bottom:6px">📝 全員・その他の指示</div>';for(var j=0;j<common.length;j++){var t=common[j];h+='<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px"><input type="checkbox" '+(t.done?"checked":"")+' onchange="toggleTask('+t.id+')" style="width:18px;height:18px"><span style="flex:1;'+(t.done?"text-decoration:line-through;color:#9ca3af":"")+'">'+(t.who?esc(t.who)+'：':'')+esc(t.text)+'</span><button class="no-print" onclick="delTask('+t.id+')" style="padding:2px 7px;font-size:11px;color:#dc2626;border-color:#fca5a5">✕</button></div>';}h+='</div>';}
+  if(P.notes.length){h+='<div style="font-size:12px;color:#6b7280;margin-bottom:10px">'+P.notes.map(function(n){return '・'+n;}).join('<br>')+'</div>';}
+  h+='</div>';
+  // 追加指示フォーム
+  h+='<div class="card no-print" style="border:2px dashed #e2e8f0"><div style="font-weight:700;margin-bottom:8px">＋ 指示を追加</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input type="date" id="tk_d" value="'+d+'" style="padding:7px"><select id="tk_w" style="padding:7px"><option value="">全員・未指定</option>';
+  for(var i=0;i<SCH_STAFF.length;i++)h+='<option value="'+SCH_STAFF[i]+'">'+SCH_STAFF[i]+'</option>';
+  h+='</select></div><div style="display:flex;gap:6px"><input type="text" id="tk_t" placeholder="例：栗の皮むき 20kg" style="flex:1;padding:8px"><button class="bg" onclick="addTask()" style="padding:8px 14px">追加</button></div></div>';
   return h;
 }
 function rMaster(){
