@@ -36,13 +36,13 @@ jobs:
         run: |
           git config user.name "daily-line-bot"
           git config user.email "noreply@example.com"
-          git add daily/workorder.jpg
+          git add daily/k9x2v7q4/workorder.jpg
           if git diff --cached --quiet; then echo "no change"; else git commit -m "daily: 作業指示書の画像 $(TZ=Asia/Tokyo date +%F)"; git push; fi
       - name: Vercelの公開を待つ
         run: |
-          H=$(sha256sum daily/workorder.jpg | cut -c1-16)
+          H=$(sha256sum daily/k9x2v7q4/workorder.jpg | cut -c1-16)
           for i in $(seq 1 30); do
-            R=$(curl -s "https://tanba-hatchu.vercel.app/daily/workorder.jpg?x=$RANDOM" | sha256sum | cut -c1-16)
+            R=$(curl -s "https://tanba-hatchu.vercel.app/daily/k9x2v7q4/workorder.jpg?x=$RANDOM" | sha256sum | cut -c1-16)
             if [ "$R" = "$H" ]; then echo "公開済み"; exit 0; fi
             sleep 10
           done
@@ -51,5 +51,5 @@ jobs:
         if: ${{ github.event.inputs.dry_run != '1' }}
         env:
           DRY_RUN: '0'
-          IMAGE_URL: https://tanba-hatchu.vercel.app/daily/workorder.jpg
+          IMAGE_URL: https://tanba-hatchu.vercel.app/daily/k9x2v7q4/workorder.jpg
         run: node scripts/daily_line.js

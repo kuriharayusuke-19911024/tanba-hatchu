@@ -40,7 +40,7 @@ async function captureWorkOrder(outPath){
   if(!Object.keys(S._cloudStock||{}).length){console.error("Supabaseからデータを読めませんでした。中止します。");process.exit(1);}
   const text=S.dailyMessageText(S.today());
   console.log("===== 文面 =====\n"+text+"\n================");
-  const outDir=path.join(__dirname,"..","daily");fs.mkdirSync(outDir,{recursive:true});
+  const outDir=path.join(__dirname,"..","daily","k9x2v7q4");fs.mkdirSync(outDir,{recursive:true});
   await captureWorkOrder(path.join(outDir,"workorder.jpg"));
   if(process.env.DRY_RUN==="1"){console.log("DRY_RUN=1 のため送信しません");return;}
   let to=process.env.KITCHEN_GROUP_ID||"";
