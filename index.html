@@ -1681,11 +1681,12 @@ function rPlan(){
 // 仕入れ発注（福山合同青果）— 半自動：下書きを確認して「LINEで送信」
 // 設定・送信履歴は stock_items の id="cfg_supplier" 行にJSON保存
 // ============================================================
-var SUP={groupId:"",items:[{sid:"s_yam",label:"長いも",qty:50,unit:"kg",note:"10kg箱×5"},{sid:"s_daikon",label:"大根",qty:100,unit:"kg",note:""}],log:[]};
+// trig＝発注点の判定に使う在庫（大根は「大根おろし（自社製パック）」の在庫で判定）
+var SUP={groupId:"",items:[{sid:"s_yam",trig:"s_yam",label:"長いも",qty:50,unit:"kg",note:"10kg箱×5"},{sid:"s_daikon",trig:"s_daikon_p",label:"大根",qty:100,unit:"kg",note:""}],log:[]};
 var _supLoaded=false;
 function loadSupplier(cb){
   supaFetch("GET","stock_items?select=name&id=eq.cfg_supplier").then(function(r){return r.json();}).then(function(d){
-    if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);SUP.groupId=o.groupId||"";if(o.items)SUP.items=o.items;SUP.log=o.log||[];}catch(e){}}
+    if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);SUP.groupId=o.groupId||"";if(o.items){for(var i=0;i<o.items.length;i++){for(var j=0;j<SUP.items.length;j++){if(SUP.items[j].sid===o.items[i].sid&&o.items[i].qty>0)SUP.items[j].qty=o.items[i].qty;}}}SUP.log=o.log||[];}catch(e){}}
     _supLoaded=true;if(cb)cb();
   }).catch(function(e){console.error("supplier load",e);_supLoaded=true;if(cb)cb();});
 }
@@ -1732,12 +1733,12 @@ function rSupplierOrder(){
   h+='<div style="font-size:12px;color:#6b7280;margin-bottom:10px">在庫が発注点以下の食材に自動でチェックが入ります。数量を確認して「LINEで送信」を押すと福山合同青果のグループに送られます（押すまで送信されません）。</div>';
   var anyLow=false;
   for(var i=0;i<SUP.items.length;i++){
-    var it=SUP.items[i];var st=getStock(it.sid);var low=st?st.stock<=st.minStock:false;if(low)anyLow=true;
+    var it=SUP.items[i];var st=getStock(it.trig||it.sid);var low=st?st.stock<=st.minStock:false;if(low)anyLow=true;
     var last=supLastSent(it.sid);
     h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;background:'+(low?"#fffbeb":"#f8fafc")+';border:1px solid '+(low?"#f59e0b":"#e2e8f0")+';border-radius:8px">';
     h+='<input type="checkbox" id="sup_cb_'+i+'" '+(low?"checked":"")+' onchange="supPreview()" style="width:18px;height:18px">';
     h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+it.label+(low?' <span style="color:#92400e;font-size:11px">🟡 発注点以下</span>':'')+'</div>';
-    h+='<div style="font-size:11px;color:#6b7280">現在庫 '+(st?stockDisp(st)+'／発注点 '+st.minStock+st.u:'—')+(last?'　最終送信 '+last:'')+'</div></div>';
+    h+='<div style="font-size:11px;color:#6b7280">'+(st?(st.id!==it.sid?st.n+'：':'現在庫 ')+stockDisp(st)+'／発注点 '+st.minStock+st.u:'—')+(last?'　最終送信 '+last:'')+'</div></div>';
     h+='<input type="number" value="'+it.qty+'" onchange="supSetQty('+i+',this.value)" style="width:64px;padding:6px;text-align:right"><span style="font-size:12px;color:#6b7280">'+it.unit+'</span>';
     h+='</div>';
   }
