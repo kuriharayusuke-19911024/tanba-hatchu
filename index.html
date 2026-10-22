@@ -1368,6 +1368,7 @@ function rStock(){
   }
   h+='</div>';
   h+='<button onclick="A.modal={type:\'addSt\'};re()" style="width:100%;padding:11px;border:1px dashed #e2e8f0;margin-top:6px">＋ 食材を追加する</button>';
+  h+=rSupplierOrder();
   // 月末棚卸しボタン
   h+='<div class="card" style="margin-top:12px;border:2px solid #7c3aed">';
   h+='<div style="font-weight:700;font-size:14px;color:#7c3aed;margin-bottom:8px">📋 月末棚卸し</div>';
@@ -1674,6 +1675,79 @@ function rPlan(){
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><input type="date" id="tk_d" value="'+d+'" style="padding:7px"><select id="tk_w" style="padding:7px"><option value="">全員・未指定</option>';
   for(var i=0;i<SCH_STAFF.length;i++)h+='<option value="'+SCH_STAFF[i]+'">'+SCH_STAFF[i]+'</option>';
   h+='</select></div><div style="display:flex;gap:6px"><input type="text" id="tk_t" placeholder="例：栗の皮むき 20kg" style="flex:1;padding:8px"><button class="bg" onclick="addTask()" style="padding:8px 14px">追加</button></div></div>';
+  return h;
+}
+// ============================================================
+// 仕入れ発注（福山合同青果）— 半自動：下書きを確認して「LINEで送信」
+// 設定・送信履歴は stock_items の id="cfg_supplier" 行にJSON保存
+// ============================================================
+var SUP={groupId:"",items:[{sid:"s_yam",label:"長いも",qty:50,unit:"kg",note:"10kg箱×5"},{sid:"s_daikon",label:"大根",qty:100,unit:"kg",note:""}],log:[]};
+var _supLoaded=false;
+function loadSupplier(cb){
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_supplier").then(function(r){return r.json();}).then(function(d){
+    if(Array.isArray(d)&&d.length&&d[0].name){try{var o=JSON.parse(d[0].name);SUP.groupId=o.groupId||"";if(o.items)SUP.items=o.items;SUP.log=o.log||[];}catch(e){}}
+    _supLoaded=true;if(cb)cb();
+  }).catch(function(e){console.error("supplier load",e);_supLoaded=true;if(cb)cb();});
+}
+function saveSupplier(){
+  SUP.log=SUP.log.slice(0,100);
+  supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_supplier",name:JSON.stringify(SUP),stock:0}).then(function(r){if(!r.ok)alert("仕入れ発注の設定保存に失敗しました");}).catch(function(e){console.error("supplier save",e);});
+}
+function supSetGroup(v){SUP.groupId=(v||"").trim();saveSupplier();}
+function supSetQty(i,v){SUP.items[i].qty=parseFloat(v)||0;saveSupplier();re();}
+function supLastSent(sid){for(var i=0;i<SUP.log.length;i++){if(SUP.log[i].items.indexOf(sid)>=0)return SUP.log[i].d;}return "";}
+function supBuildText(sel,deliv){
+  var lines=["福山合同青果 御中","","いつもお世話になっております。","丹農食品の栗原です。","下記の発注をお願いいたします。",""];
+  for(var i=0;i<sel.length;i++){var it=sel[i];lines.push("・"+it.label+"　"+it.qty+it.unit+(it.note?"（"+it.note+"）":""));}
+  if(deliv)lines.push("","納品希望日："+deliv);
+  lines.push("","よろしくお願いいたします。","丹農食品　栗原");
+  return lines.join("\n");
+}
+function supSelected(){var sel=[];for(var i=0;i<SUP.items.length;i++){var cb=document.getElementById("sup_cb_"+i);if(cb&&cb.checked&&SUP.items[i].qty>0)sel.push(SUP.items[i]);}return sel;}
+function supPreview(){var ta=document.getElementById("sup_text");if(!ta)return;var dv=document.getElementById("sup_deliv");ta.value=supBuildText(supSelected(),dv?dv.value:"");}
+function supSend(){
+  if(!SUP.groupId)return alert("福山合同青果のLINEグループIDが未設定です。下の欄に入力してください。");
+  var sel=supSelected();if(!sel.length)return alert("発注する食材にチェックを入れてください");
+  var ta=document.getElementById("sup_text");var text=ta?ta.value.trim():"";if(!text)return alert("送信する文面がありません");
+  var dv=document.getElementById("sup_deliv");var deliv=dv?dv.value:"";
+  if(deliv){var dow=new Date(deliv+"T00:00:00").getDay();if(dow===3&&!confirm("納品希望日が水曜（福山合同青果の定休日）です。このまま送りますか？"))return;}
+  var recent=[];var td=today();for(var i=0;i<sel.length;i++){var last=supLastSent(sel[i].sid);if(last&&(new Date(td)-new Date(last))/86400000<3)recent.push(sel[i].label+"（"+last+"送信済）");}
+  if(recent.length&&!confirm("直近3日以内に送信済みの食材があります：\n"+recent.join("\n")+"\n\nそれでも送信しますか？"))return;
+  if(!confirm("福山合同青果のLINEグループに送信します。よろしいですか？\n\n"+text))return;
+  var btn=document.getElementById("sup_send");if(btn){btn.disabled=true;btn.textContent="送信中…";}
+  fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({type:"push",to:SUP.groupId,message:text})})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var ok=false;try{ok=JSON.parse(t).ok===true;}catch(e){ok=false;}
+      if(!ok){alert("送信に失敗しました。GASの設定（送り先指定）が未対応の可能性があります。\n応答: "+t.slice(0,200));if(btn){btn.disabled=false;btn.textContent="📨 LINEで送信";}return;}
+      SUP.log.unshift({d:td,items:sel.map(function(x){return x.sid;}),text:text,deliv:deliv});saveSupplier();
+      alert("✅ 福山合同青果に送信しました");re();
+    })
+    .catch(function(e){alert("送信エラー："+e);if(btn){btn.disabled=false;btn.textContent="📨 LINEで送信";}});
+}
+function rSupplierOrder(){
+  if(!_supLoaded)loadSupplier(function(){re();});
+  var h='<div class="card" style="margin-top:12px;border:2px solid #16a34a">';
+  h+='<div style="font-weight:700;font-size:14px;color:#166534;margin-bottom:4px">🥬 仕入れ発注（福山合同青果）</div>';
+  h+='<div style="font-size:12px;color:#6b7280;margin-bottom:10px">在庫が発注点以下の食材に自動でチェックが入ります。数量を確認して「LINEで送信」を押すと福山合同青果のグループに送られます（押すまで送信されません）。</div>';
+  var anyLow=false;
+  for(var i=0;i<SUP.items.length;i++){
+    var it=SUP.items[i];var st=getStock(it.sid);var low=st?st.stock<=st.minStock:false;if(low)anyLow=true;
+    var last=supLastSent(it.sid);
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;background:'+(low?"#fffbeb":"#f8fafc")+';border:1px solid '+(low?"#f59e0b":"#e2e8f0")+';border-radius:8px">';
+    h+='<input type="checkbox" id="sup_cb_'+i+'" '+(low?"checked":"")+' onchange="supPreview()" style="width:18px;height:18px">';
+    h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+it.label+(low?' <span style="color:#92400e;font-size:11px">🟡 発注点以下</span>':'')+'</div>';
+    h+='<div style="font-size:11px;color:#6b7280">現在庫 '+(st?stockDisp(st)+'／発注点 '+st.minStock+st.u:'—')+(last?'　最終送信 '+last:'')+'</div></div>';
+    h+='<input type="number" value="'+it.qty+'" onchange="supSetQty('+i+',this.value)" style="width:64px;padding:6px;text-align:right"><span style="font-size:12px;color:#6b7280">'+it.unit+'</span>';
+    h+='</div>';
+  }
+  h+='<div style="display:flex;gap:8px;align-items:center;margin:8px 0"><label style="font-size:12px;color:#6b7280">納品希望日（任意・水曜は定休）</label><input type="date" id="sup_deliv" onchange="supPreview()" style="padding:6px"></div>';
+  h+='<textarea id="sup_text" rows="9" style="width:100%;font-size:13px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box"></textarea>';
+  h+='<div style="display:flex;gap:8px;margin-top:8px"><button onclick="supPreview()" style="padding:9px 12px;font-size:12px">文面を作り直す</button><button id="sup_send" class="bg" onclick="supSend()" style="flex:1;padding:10px;font-size:14px;font-weight:700">📨 LINEで送信</button></div>';
+  h+='<details style="margin-top:10px"><summary style="font-size:12px;color:#6b7280;cursor:pointer">⚙️ 設定：福山合同青果のLINEグループID</summary><div style="margin-top:6px"><input type="text" value="'+esc(SUP.groupId)+'" placeholder="Cxxxxxxxx…（GASのcheckGroupIdで取得）" onchange="supSetGroup(this.value)" style="width:100%;padding:7px;font-size:12px;box-sizing:border-box"></div></details>';
+  if(SUP.log.length){h+='<details style="margin-top:6px"><summary style="font-size:12px;color:#6b7280;cursor:pointer">📜 送信履歴（'+SUP.log.length+'件）</summary>';for(var i=0;i<Math.min(SUP.log.length,10);i++){var lg=SUP.log[i];h+='<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f1f5f9">'+lg.d+'　'+lg.items.map(function(sid){for(var k=0;k<SUP.items.length;k++){if(SUP.items[k].sid===sid)return SUP.items[k].label;}return sid;}).join("・")+(lg.deliv?'　納品'+lg.deliv:'')+'</div>';}h+='</details>';}
+  h+='</div>';
+  setTimeout(supPreview,0);
   return h;
 }
 function rMaster(){
