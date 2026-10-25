@@ -3,6 +3,7 @@
 // 環境変数: DRY_RUN=1 … 送信しない（文面と画像の作成まで）
 //           KITCHEN_GROUP_ID … 送信先（未指定なら Supabase の cfg_kitchen 行）
 //           IMAGE_URL … 画像の公開URL（ワークフロー側で設定）
+process.env.TZ="Asia/Tokyo";
 const fs=require("fs");const vm=require("vm");const path=require("path");
 const APP_URL="https://tanba-hatchu.vercel.app";
 const html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
@@ -23,7 +24,7 @@ const p=fn=>new Promise(res=>fn(res));
 async function captureWorkOrder(outPath){
   const {chromium}=require("playwright");
   const browser=await chromium.launch();
-  const page=await browser.newPage({viewport:{width:1200,height:900},deviceScaleFactor:2});
+  const page=await browser.newPage({viewport:{width:1200,height:900},deviceScaleFactor:2,timezoneId:"Asia/Tokyo",locale:"ja-JP"});
   await page.goto(APP_URL+"/?v="+Date.now(),{waitUntil:"networkidle"});
   await page.waitForTimeout(2500);
   await page.evaluate(()=>{A.user={r:"admin",n:"自動"};A.tab="workorder";re();var nav=document.querySelector(".nav");if(nav)nav.style.display="none";document.body.style.paddingTop="0";});

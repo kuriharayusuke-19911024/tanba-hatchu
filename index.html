@@ -406,7 +406,7 @@ var STOCK=[
 var OR=[];
 
 var SLOG=[];
-function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function today(){var d=new Date(Date.now()+9*3600*1000);return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");} // 常に日本時間
 function thisMonth(){return today().slice(0,7);}
 function stockDisp(s){var v=Math.round(s.stock*100)/100;if(s.pack){return fmt(v)+s.u+"（約"+(Math.round(v/s.pack*10)/10)+"本）";}return v+s.u;}
 function esc(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
