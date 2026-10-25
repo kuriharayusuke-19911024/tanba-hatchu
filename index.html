@@ -1649,6 +1649,7 @@ function buildPlan(d){
   var extra=[];for(var i=0;i<TASKS.list.length;i++){if(TASKS.list[i].d===d)extra.push(TASKS.list[i]);}
   return {people:people,src:att.src,plan:plan,notes:notes,extra:extra,isShip:isShip,procs:procs};
 }
+var LINE_TRIAL_NOTE=true; // 試験運用の注意書き（慣れたら false に）
 var LINE_SHOW_TANTO=false; // true にすると LINE 文面に「今日の担当（人別）」を載せる
 function rPlan(){
   var d=planDate();var P=buildPlan(d);var wd=["日","月","火","水","木","金","土"];var dow=new Date(d+"T00:00:00").getDay();
@@ -1761,6 +1762,7 @@ function dailyMessageText(d){
   d=d||today();var wd=["日","月","火","水","木","金","土"];var dow=new Date(d+"T00:00:00").getDay();
   var L=[];
   L.push("【"+d.slice(5).replace("-","/")+"（"+wd[dow]+"）作業指示】");
+  if(LINE_TRIAL_NOTE)L.push("※この連絡はアプリから自動送信しています。試験運用中のため、内容に間違いがあるかもしれません。気になる点があれば栗原まで教えてください。");
   // --- 作業指示（未出荷の発注）
   var pending=[];for(var i=0;i<OR.length;i++){if(OR[i].st==="pending")pending.push(OR[i]);}
   var stores=[];for(var i=0;i<pending.length;i++)stores.push(pending[i].s.replace("天ぷらとワイン大塩　",""));
