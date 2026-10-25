@@ -316,7 +316,7 @@ var STOCK_MAP={
   daikon:   [{sid:"s_daikon",   qty:20},{sid:"s_vacpack",qty:20}],     // 1発注=20kg=20パック、1パック=大根約1本
   negi:     [{sid:"s_negi",     qty:10}],     // 1発注=10本
   // 牛すじ煮込み：10kg仕込み1回分の使用量。1パックあたり = 下記 ÷ 在庫タブ「【設定】牛すじ10kg仕込みのパック数」
-  gyu:      [{sid:"s_gyusuji",qty:10,batch:true},{sid:"s_aonegi",qty:5,batch:true},{sid:"s_ginger",qty:100,batch:true},{sid:"s_daikon_p",qty:0.5,batch:true},
+  gyu:      [{sid:"proc_gyu",qty:1},{sid:"s_gyusuji",qty:10,batch:true},{sid:"s_aonegi",qty:5,batch:true},{sid:"s_ginger",qty:100,batch:true},{sid:"s_daikon_p",qty:0.5,batch:true},
              {sid:"s_sake",qty:1400,batch:true},{sid:"s_mirin",qty:400,batch:true},{sid:"s_vinegar",qty:50,batch:true},{sid:"s_vacpack",qty:1}],
   chestnut: []
 };
@@ -374,6 +374,7 @@ var STOCK=[
   {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
   {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:8,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
   {id:"proc_shrimp",n:"加工済みエビ（むきエビ）",type:"processed",cat:"frozen",u:"尾",stock:0,minStock:3000,weeklyNeed:0,unitCost:0,linked:["エビ仕入れ"],linkedPid:"shrimp"},
+  {id:"proc_gyu",n:"牛すじ煮込み（加工済・冷凍パック）",type:"processed",cat:"frozen",u:"パック",stock:0,minStock:8,weeklyNeed:0,unitCost:0,linked:["牛すじ仕入れ"],linkedPid:"gyu"},
   {id:"s_mayo",n:"マヨネーズ（1本1kg）",type:"ingredient",cat:"seasoning",u:"g",pack:1000,stock:1000,minStock:20000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_asazuke",n:"浅漬けの素（1本1.8L）",type:"ingredient",cat:"seasoning",u:"ml",pack:1800,stock:1800,minStock:36000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_wasabi",n:"粉わさび",type:"ingredient",cat:"seasoning",u:"kg",stock:1,minStock:2,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
@@ -1636,8 +1637,8 @@ function buildPlan(d){
   var dp=getStock("s_daikon_p");if(dp){var need=planCeil(sum("daikon")*20-dp.stock);var low=dp.stock<=dp.minStock;if(need>0||low){procs.push({pri:0,ratio:dp.minStock?dp.stock/dp.minStock:0,txt:"大根おろし "+Math.max(need,low?planCeil(dp.minStock-dp.stock):0)+"パック（現在庫 "+dp.stock+"パック"+(need>0?"・未出荷分で"+need+"パック不足":"")+"）"});}}
   var ps=getStock("proc_shrimp");if(ps){var needS=planCeil(sum("shrimp")*300-ps.stock);var lowS=ps.stock<=ps.minStock;if(needS>0||lowS){var tail=Math.max(needS,lowS?planCeil(ps.minStock-ps.stock):0);var cases=planCeil(tail/600);procs.push({pri:1,ratio:ps.minStock?ps.stock/ps.minStock:0,txt:"むきエビ加工 "+cases+"ケース（約"+(cases*600)+"尾・現在庫 "+ps.stock+"尾）"});}}
   var pc=getStock("proc_cheese");if(pc&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）"});}
-  // 牛すじ：週1回10kg（火曜を目安）
-  if(dow===2){procs.push({pri:3,ratio:1,txt:"牛すじ煮込み 10kg仕込み（週1回の目安。在庫に余裕があれば多めでも可）"});}
+  // 牛すじ煮込み：他の惣菜と同じく在庫（加工済パック）が発注点を下回ったら
+  var pg=getStock("proc_gyu");if(pg){var needG=planCeil(sum("gyu")-pg.stock);var lowG=pg.stock<=pg.minStock;if(needG>0||lowG){var cfgP=getStock("cfg_gyu_packs");var per=(cfgP&&cfgP.stock>0)?cfgP.stock:8;var packs=Math.max(needG,lowG?planCeil(pg.minStock-pg.stock):0);var batches=Math.max(1,planCeil(packs/per));procs.push({pri:2,ratio:pg.minStock?pg.stock/pg.minStock:0,txt:"牛すじ煮込み 10kg×"+batches+"回仕込み（約"+(batches*per)+"パック・現在庫 "+pg.stock+"パック"+(needG>0?"・未出荷分で"+needG+"パック不足":"")+"）"});}}
   procs.sort(function(a,b){return a.pri-b.pri||a.ratio-b.ratio;});
   // 配分：加工担当者（木村・アルメ・愛華）に順番に
   var workers=[];var wo=["木村みき","藤原アルメ","藤原愛華"];for(var i=0;i<wo.length;i++){if(has(wo[i]))workers.push(wo[i]);}
