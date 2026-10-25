@@ -1646,8 +1646,9 @@ function buildPlan(d){
   if(!procs.length)notes.push("在庫が発注点を下回っている加工品はありません");
   // 追加指示
   var extra=[];for(var i=0;i<TASKS.list.length;i++){if(TASKS.list[i].d===d)extra.push(TASKS.list[i]);}
-  return {people:people,src:att.src,plan:plan,notes:notes,extra:extra,isShip:isShip};
+  return {people:people,src:att.src,plan:plan,notes:notes,extra:extra,isShip:isShip,procs:procs};
 }
+var LINE_SHOW_TANTO=false; // true にすると LINE 文面に「今日の担当（人別）」を載せる
 function rPlan(){
   var d=planDate();var P=buildPlan(d);var wd=["日","月","火","水","木","金","土"];var dow=new Date(d+"T00:00:00").getDay();
   var h='<div style="font-size:16px;font-weight:700;margin-bottom:4px">👷 今日の担当</div>';
@@ -1767,19 +1768,28 @@ function dailyMessageText(d){
   var tot={};for(var i=0;i<pending.length;i++){var ks=Object.keys(pending[i].it);for(var j=0;j<ks.length;j++)tot[ks[j]]=(tot[ks[j]]||0)+pending[i].it[ks[j]];}
   var tk=Object.keys(tot);
   if(tk.length){L.push("");L.push("■ 品目合計");tk.sort(function(a,b){var ia=999,ib=999;for(var k=0;k<PD.length;k++){if(PD[k].id===a)ia=k;if(PD[k].id===b)ib=k;}return ia-ib;});for(var i=0;i<tk.length;i++)L.push("・"+pn(tk[i])+"："+qd(tk[i],tot[tk[i]]));}
-  // --- 今日の担当
   var P=buildPlan(d);
-  L.push("");L.push("■ 今日の担当（出勤："+(P.people.length?P.people.join("・"):"なし")+"）");
-  for(var i=0;i<P.people.length;i++){
-    var nm=P.people[i];var items=P.plan[nm]||[];
-    var mine=[];for(var j=0;j<P.extra.length;j++){if(P.extra[j].who===nm&&!P.extra[j].done)mine.push(P.extra[j]);}
-    L.push("👤 "+nm+(PLAN_TIME[nm]?"（"+PLAN_TIME[nm]+"）":""));
-    if(!items.length&&!mine.length)L.push("　・割り当てなし");
-    for(var j=0;j<items.length;j++)L.push("　・"+items[j].t);
-    for(var j=0;j<mine.length;j++)L.push("　・📝 "+mine[j].text);
+  if(LINE_SHOW_TANTO){
+    // --- 今日の担当（人別）
+    L.push("");L.push("■ 今日の担当（出勤："+(P.people.length?P.people.join("・"):"なし")+"）");
+    for(var i=0;i<P.people.length;i++){
+      var nm=P.people[i];var items=P.plan[nm]||[];
+      var mine=[];for(var j=0;j<P.extra.length;j++){if(P.extra[j].who===nm&&!P.extra[j].done)mine.push(P.extra[j]);}
+      L.push("👤 "+nm+(PLAN_TIME[nm]?"（"+PLAN_TIME[nm]+"）":""));
+      if(!items.length&&!mine.length)L.push("　・割り当てなし");
+      for(var j=0;j<items.length;j++)L.push("　・"+items[j].t);
+      for(var j=0;j<mine.length;j++)L.push("　・📝 "+mine[j].text);
+    }
+    var common=[];for(var j=0;j<P.extra.length;j++){if((!P.extra[j].who||P.people.indexOf(P.extra[j].who)<0)&&!P.extra[j].done)common.push(P.extra[j]);}
+    if(common.length){L.push("📝 全員・その他");for(var j=0;j<common.length;j++)L.push("　・"+(common[j].who?common[j].who+"：":"")+common[j].text);}
+  }else{
+    // --- やった方が良い仕事（在庫が減ってきている食材。担当者は付けない）
+    L.push("");L.push("■ やった方が良い仕事（在庫が減ってきている食材）");
+    if(P.procs.length){for(var i=0;i<P.procs.length;i++)L.push("・"+P.procs[i].txt);}
+    else L.push("・在庫が発注点を下回っている加工品はありません");
+    var ex=[];for(var j=0;j<P.extra.length;j++){if(!P.extra[j].done)ex.push(P.extra[j]);}
+    if(ex.length){L.push("");L.push("■ 追加の指示");for(var j=0;j<ex.length;j++)L.push("・"+(ex[j].who?ex[j].who+"：":"")+ex[j].text);}
   }
-  var common=[];for(var j=0;j<P.extra.length;j++){if((!P.extra[j].who||P.people.indexOf(P.extra[j].who)<0)&&!P.extra[j].done)common.push(P.extra[j]);}
-  if(common.length){L.push("📝 全員・その他");for(var j=0;j<common.length;j++)L.push("　・"+(common[j].who?common[j].who+"：":"")+common[j].text);}
   // --- 在庫アラート
   var al=getStockAlerts();
   if(al.length){L.push("");L.push("■ 在庫アラート");for(var i=0;i<al.length;i++)L.push("・"+(al[i].empty?"🔴":"🟡")+" "+al[i].n+"："+al[i].stock+al[i].u+"（発注点 "+al[i].min+al[i].u+"）");}
