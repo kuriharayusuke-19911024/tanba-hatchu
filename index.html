@@ -293,7 +293,7 @@ var PD=[
   {id:"kuroedamame",n:"丹波黒枝豆",u:"発注",sp:0,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:5,lotUnit:"発注(5kg)",minLot:1,dispUnit:"kg",dispMult:5,ings:[{id:1,n:"黒枝豆仕入れ",q:5,u:"kg",c:0}]},
   {id:"manganji",n:"万願寺唐辛子",u:"発注",sp:0,tx:0.08,v:true,co:"tanno",temp:"season",tempNote:"時期により常温/チルド",lotSize:20,lotUnit:"発注(20本)",minLot:1,dispUnit:"本",dispMult:20,ings:[{id:1,n:"万願寺唐辛子仕入れ",q:20,u:"本",c:0}]},
   {id:"danshaku",n:"2年熟成 男爵（ジャガイモ）",u:"発注",sp:0,tx:0.08,v:true,co:"tanno",temp:"ambient",lotSize:5,lotUnit:"発注(5kg)",minLot:1,dispUnit:"kg",dispMult:5,riceShip:true,shipBy:"尾藤農産",ings:[{id:1,n:"男爵仕入れ",q:5,u:"kg",c:0}]},
-  {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"パック(1kg)",minLot:1,dispUnit:"パック",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600}]},
+  {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"パック(1.5kg)",minLot:1,dispUnit:"パック",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600}]},
   {id:"chestnut",n:"丹波栗渋皮煮",u:"個",sp:18000,tx:0.08,v:false,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"丹波栗仕入れ",q:1,u:"個",c:7200}]}
 ];
 
@@ -313,13 +313,13 @@ var STOCK_MAP={
   cheese:   [{sid:"proc_cheese",qty:1},{sid:"s_vacpack",qty:0.25}], // 4個で真空パック1枚      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
   kuroedamame:[{sid:"s_kuroedamame",qty:5}],
-  daikon:   [{sid:"s_daikon",   qty:20},{sid:"s_vacpack",qty:20}],     // 1発注=20kg=20パック、1パック=大根約1本
+  daikon:   [{sid:"s_daikon_p",qty:20}],     // 1発注=20パック。加工済みパックから出庫（大根・真空パックは加工登録時に減る）
   negi:     [{sid:"s_negi",     qty:10}],     // 1発注=10本
-  // 牛すじ煮込み：10kg仕込み1回分の使用量。1パックあたり = 下記 ÷ 在庫タブ「【設定】牛すじ10kg仕込みのパック数」
-  gyu:      [{sid:"proc_gyu",qty:1},{sid:"s_gyusuji",qty:10,batch:true},{sid:"s_aonegi",qty:5,batch:true},{sid:"s_ginger",qty:100,batch:true},{sid:"s_daikon_p",qty:0.5,batch:true},
-             {sid:"s_sake",qty:1400,batch:true},{sid:"s_mirin",qty:400,batch:true},{sid:"s_vinegar",qty:50,batch:true},{sid:"s_vacpack",qty:1}],
+  gyu:      [{sid:"proc_gyu",qty:1}],     // 1発注=1パック(1.5kg)。加工済みパックから出庫（原材料は加工登録時に減る）
   chestnut: []
 };
+// 牛すじ煮込み 10kg仕込み1回分の原材料（加工登録時に減る）。出来るパック数は在庫タブ「【設定】牛すじ10kg仕込みのパック数」
+var GYU_BATCH=[{sid:"s_gyusuji",qty:10},{sid:"s_aonegi",qty:5},{sid:"s_ginger",qty:100},{sid:"s_daikon_p",qty:0.5},{sid:"s_sake",qty:1400},{sid:"s_mirin",qty:400},{sid:"s_vinegar",qty:50}];
 
 // 在庫IDから在庫オブジェクトを取得
 function getStock(sid){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===sid)return STOCK[i];}return null;}
@@ -1346,6 +1346,32 @@ function rStock(){
   h+='<button onclick="procShrimp()" style="padding:9px 16px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
   h+='</div>';
 
+  // 大根おろし 加工登録（大根→大根おろしパック）
+  var rawD=getStock("s_daikon");var procD=getStock("s_daikon_p");var vp=getStock("s_vacpack");
+  h+='<div class="card" style="border-left:4px solid #0f766e;margin-bottom:12px">';
+  h+='<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#0f766e">🥬 大根おろし 加工登録</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:12px">';
+  h+='<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#1e40af;margin-bottom:4px">原材料（大根）</div><div style="font-size:24px;font-weight:700;color:#1e3a6e">'+(rawD?rawD.stock:0)+'<span style="font-size:12px">本</span></div></div>';
+  h+='<div style="display:flex;align-items:center;font-size:24px;color:#0f766e">→</div>';
+  h+='<div style="flex:1;background:#ccfbf1;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#0f766e;margin-bottom:4px">大根おろし（加工済パック）</div><div style="font-size:24px;font-weight:700;color:#0f766e">'+(procD?procD.stock:0)+'<span style="font-size:12px">パック</span></div></div></div>';
+  h+='<div style="font-size:12px;color:#6b7280;background:#f0fdfa;border-radius:8px;padding:8px 12px;margin-bottom:10px">大根1本 → 大根おろし1パック。真空パックも同じ枚数減ります（残 '+(vp?vp.stock:0)+'枚）</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="daikon_proc" placeholder="作ったパック数" style="flex:1;padding:8px 10px" inputmode="numeric">';
+  h+='<button onclick="procDaikon()" style="padding:9px 16px;background:#0f766e;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
+  h+='</div>';
+
+  // 牛すじ煮込み 加工登録（10kg仕込み→冷凍パック）
+  var rawG=getStock("s_gyusuji");var procG=getStock("proc_gyu");var cfgG=getStock("cfg_gyu_packs");var perG=(cfgG&&cfgG.stock>0)?cfgG.stock:8;
+  h+='<div class="card" style="border-left:4px solid #9a3412;margin-bottom:12px">';
+  h+='<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#9a3412">🍖 牛すじ煮込み 加工登録</div>';
+  h+='<div style="display:flex;gap:10px;margin-bottom:12px">';
+  h+='<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#1e40af;margin-bottom:4px">原材料（牛すじ）</div><div style="font-size:24px;font-weight:700;color:#1e3a6e">'+(rawG?rawG.stock:0)+'<span style="font-size:12px">kg</span></div></div>';
+  h+='<div style="display:flex;align-items:center;font-size:24px;color:#9a3412">→</div>';
+  h+='<div style="flex:1;background:#ffedd5;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#9a3412;margin-bottom:4px">牛すじ煮込み（冷凍パック1.5kg）</div><div style="font-size:24px;font-weight:700;color:#9a3412">'+(procG?procG.stock:0)+'<span style="font-size:12px">パック</span></div></div></div>';
+  h+='<div style="font-size:12px;color:#6b7280;background:#fff7ed;border-radius:8px;padding:8px 12px;margin-bottom:10px">10kg仕込み1回 → '+perG+'パック（在庫タブ「【設定】牛すじ10kg仕込みのパック数」で変更）。牛すじ10kg・青ネギ5本・生姜100g・大根おろし0.5パック・酒1400ml・みりん400ml・酢50ml・真空パック'+perG+'枚が減ります</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="gyu_proc" placeholder="仕込んだ回数（10kg単位）" style="flex:1;padding:8px 10px" inputmode="numeric">';
+  h+='<button onclick="procGyu()" style="padding:9px 16px;background:#9a3412;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
+  h+='</div>';
+
   var cats=["all","frozen","chilled","fresh","seasoning","other"];var catLabels={all:"すべて",frozen:"冷凍・加工品",chilled:"チルド",fresh:"野菜・生鮮",seasoning:"調味料",other:"その他"};
   h+='<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">';
   for(var i=0;i<cats.length;i++){var c2=cats[i];var ac=(A.stCat||"all")===c2;h+='<button onclick="A.stCat=\''+c2+'\';re()" style="'+(ac?"background:#1e3a6e;color:#fff;border-color:#1e3a6e":"")+';padding:5px 10px;font-size:11px;white-space:nowrap">'+catLabels[c2]+'</button>';}
@@ -1427,6 +1453,37 @@ function procShrimp(){
     {mat:"加工済みエビ（むきエビ）",qty:-produced,u:"尾",prod:"加工完了",remain:proc.stock,sid:proc.id}
   ]});
   alert("✅ 加工完了！\n冷凍エビ "+cases+"ケース → むきエビ "+produced+"尾\n\n原材料残: "+raw.stock+"ケース\n加工済み残: "+proc.stock+"尾");
+  });
+}
+function procDaikon(){
+  var el=document.getElementById("daikon_proc");var n=parseFloat(el?el.value:0)||0;
+  if(!n||n<=0)return alert("作ったパック数を入力してください");
+  var raw=getStock("s_daikon"),proc=getStock("s_daikon_p"),vp=getStock("s_vacpack");
+  if(!raw||!proc)return alert("在庫データが見つかりません");
+  if(raw.stock<n){if(!confirm("大根の在庫("+raw.stock+"本)より多い数量です。続けますか？"))return;}
+  if(el)el.value="";
+  withFreshStock(function(){
+    raw.stock=Math.max(0,Math.round((raw.stock-n)*100)/100);proc.stock=Math.round((proc.stock+n)*100)/100;
+    var items=[{mat:"大根（原材料）",qty:n,u:"本",prod:"加工作業",remain:raw.stock,sid:raw.id},{mat:"大根おろし（加工済パック）",qty:-n,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id}];
+    if(vp){vp.stock=Math.max(0,vp.stock-n);items.push({mat:"真空パック（袋）",qty:n,u:"枚",prod:"加工作業",remain:vp.stock,sid:vp.id});}
+    SLOG.unshift({oid:"proc",st:"加工作業",d:today(),ts:new Date().toLocaleString("ja-JP"),items:items});
+    alert("✅ 加工完了！\n大根 "+n+"本 → 大根おろし "+n+"パック\n\n大根残: "+raw.stock+"本\n大根おろしパック残: "+proc.stock+"パック");
+  });
+}
+function procGyu(){
+  var el=document.getElementById("gyu_proc");var n=parseFloat(el?el.value:0)||0;
+  if(!n||n<=0)return alert("仕込んだ回数を入力してください");
+  var proc=getStock("proc_gyu");if(!proc)return alert("在庫データが見つかりません");
+  var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;var packs=Math.round(per*n);
+  var raw=getStock("s_gyusuji");if(raw&&raw.stock<10*n){if(!confirm("牛すじの在庫("+raw.stock+"kg)より多い数量です。続けますか？"))return;}
+  if(el)el.value="";
+  withFreshStock(function(){
+    var items=[];
+    for(var i=0;i<GYU_BATCH.length;i++){var st=getStock(GYU_BATCH[i].sid);if(!st)continue;var use=GYU_BATCH[i].qty*n;st.stock=Math.max(0,Math.round((st.stock-use)*100)/100);items.push({mat:st.n,qty:use,u:st.u,prod:"加工作業",remain:st.stock,sid:st.id});}
+    var vp=getStock("s_vacpack");if(vp){vp.stock=Math.max(0,vp.stock-packs);items.push({mat:"真空パック（袋）",qty:packs,u:"枚",prod:"加工作業",remain:vp.stock,sid:vp.id});}
+    proc.stock=Math.round((proc.stock+packs)*100)/100;items.push({mat:"牛すじ煮込み（加工済・冷凍パック）",qty:-packs,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id});
+    SLOG.unshift({oid:"proc",st:"加工作業",d:today(),ts:new Date().toLocaleString("ja-JP"),items:items});
+    alert("✅ 加工完了！\n10kg仕込み "+n+"回 → 牛すじ煮込み "+packs+"パック\n\n牛すじ残: "+(raw?raw.stock:"-")+"kg\nパック残: "+proc.stock+"パック");
   });
 }
 function recvSt(id,prefix){
