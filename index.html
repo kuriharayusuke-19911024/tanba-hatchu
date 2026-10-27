@@ -97,6 +97,7 @@ function loadStockFromCloud(callback){
     .then(function(r){return r.json();})
     .then(function(data){
       if(!Array.isArray(data)||data.length===0){if(callback)callback();return;}
+      var byId={};for(var i=0;i<data.length;i++)byId[data[i].id]=data[i];
       for(var i=0;i<data.length;i++){
         var row=data[i];
         for(var j=0;j<STOCK.length;j++){
@@ -107,6 +108,9 @@ function loadStockFromCloud(callback){
           }
         }
       }
+      // 旧：クール/陸便別の段ボール在庫 → 新：サイズ別に合算（初回のみ。次の保存でクラウドに書かれる）
+      var mig={bx_140:["bx_cool140","bx_land140"],bx_100:["bx_cool100","bx_land100"]};
+      for(var k in mig){if(byId[k])continue;var st=getStock(k);if(!st)continue;var sum=0,found=false;for(var q=0;q<mig[k].length;q++){if(byId[mig[k][q]]){found=true;sum+=Number(byId[mig[k][q]].stock)||0;}}if(found)st.stock=sum;}
       if(callback)callback();
     })
     .catch(function(e){console.error("Stock load error",e);if(callback)callback();});
@@ -397,10 +401,9 @@ var STOCK=[
   {id:"cfg_gyu_packs",n:"【設定】牛すじ10kg仕込みで出来るパック数",type:"ingredient",cat:"other",u:"パック",stock:8,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_vacpack",n:"真空パック（袋）",type:"ingredient",cat:"other",u:"枚",stock:0,minStock:300,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:0,minStock:20,weeklyNeed:0,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
-  {id:"bx_cool140",n:"段ボール クール140",type:"box",cat:"box",u:"枚",stock:20,minStock:10,unitCost:0,linked:[],boxId:"cool140"},
-  {id:"bx_cool100",n:"段ボール クール100",type:"box",cat:"box",u:"枚",stock:15,minStock:10,unitCost:0,linked:[],boxId:"cool100"},
-  {id:"bx_land140",n:"段ボール 陸便140",type:"box",cat:"box",u:"枚",stock:10,minStock:5,unitCost:0,linked:[],boxId:"land140"},
-  {id:"bx_land100",n:"段ボール 陸便100",type:"box",cat:"box",u:"枚",stock:12,minStock:5,unitCost:0,linked:[],boxId:"land100"}
+  // 段ボールはチルド・常温共通なのでサイズ別のみ（クール/陸便の区別は送料計算用）
+  {id:"bx_140",n:"段ボール 140サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool140","land140"]},
+  {id:"bx_100",n:"段ボール 100サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool100","land100"]}
 ];
 
 var OR=[];
@@ -457,7 +460,7 @@ function deductStock(o){
     for(var bi=0;bi<bids.length;bi++){
       var bid=bids[bi],used=o.bx[bid]||0;if(!used)continue;
       for(var si=0;si<STOCK.length;si++){
-        if(STOCK[si].type==="box"&&STOCK[si].boxId===bid){
+        if(STOCK[si].type==="box"&&(STOCK[si].boxIds||[]).indexOf(bid)>=0){
           var bef=STOCK[si].stock;STOCK[si].stock=Math.max(0,STOCK[si].stock-used);
           var dec=bef-STOCK[si].stock;
           if(dec>0)log.push({mat:STOCK[si].n,qty:dec,u:STOCK[si].u,prod:"出荷梱包",remain:STOCK[si].stock,sid:STOCK[si].id});
@@ -1296,7 +1299,7 @@ function rStock(){
   h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
   for(var i=0;i<boxes.length;i++){
     var s=boxes[i];var needed=0;
-    for(var j=0;j<OR.length;j++){if(OR[j].st!=="pending")continue;var bc=A.bct[OR[j].id+"_c"]||{},bf=A.bct[OR[j].id+"_f"]||{};needed+=(bc[s.boxId]||0)+(bf[s.boxId]||0);}
+    for(var j=0;j<OR.length;j++){if(OR[j].st!=="pending")continue;var bc=A.bct[OR[j].id+"_c"]||{},bf=A.bct[OR[j].id+"_f"]||{};for(var q=0;q<(s.boxIds||[]).length;q++){needed+=(bc[s.boxIds[q]]||0)+(bf[s.boxIds[q]]||0);}}
     var shortage=Math.max(0,needed-s.stock);
     var sc=s.stock<=0?"#dc2626":shortage>0?"#1e40af":s.stock<s.minStock?"#92400e":"#16a34a";
     var bg=s.stock<=0?"#fef2f2":shortage>0?"#eff6ff":s.stock<s.minStock?"#fef3c7":"#f0fdf4";
