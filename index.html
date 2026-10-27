@@ -262,10 +262,10 @@ var PW="1108";
 var ST=["天ぷらとワイン大塩　丸の内店","天ぷらとワイン大塩　日比谷店","天ぷらとワイン大塩　中野店","天ぷらとワイン大塩　天満市場店","天ぷらとワイン大塩　第三ビル店","たこ焼きなにわ"];
 var RG={"天ぷらとワイン大塩　丸の内店":"ka","天ぷらとワイン大塩　日比谷店":"ka","天ぷらとワイン大塩　中野店":"ka","たこ焼きなにわ":"ka","天ぷらとワイン大塩　天満市場店":"os","天ぷらとワイン大塩　第三ビル店":"os"};
 var RL={ka:"関東（東京）",os:"関西（大阪）"};
-var RT={ka:{cool100:1300,cool140:1800,land100:920,land140:1000},os:{cool100:1150,cool140:1600,land100:850,land140:900}};
+var RT={ka:{cool80:0,cool100:1300,cool140:1800,land80:0,land100:920,land140:1000},os:{cool80:0,cool100:1150,cool140:1600,land80:0,land100:850,land140:900}}; // 80サイズの送料は未設定（0）
 // 米の固定送料（但馬米穀が出荷）
 var RICE_SHIP={ka:1500,os:1000};
-var BX=[{id:"cool140",n:"クール140",t:"チルド/冷凍 140サイズ"},{id:"cool100",n:"クール100",t:"チルド/冷凍 100サイズ"},{id:"land140",n:"陸便140",t:"常温 140サイズ"},{id:"land100",n:"陸便100",t:"常温 100サイズ"}];
+var BX=[{id:"cool140",n:"クール140",t:"チルド/冷凍 140サイズ"},{id:"cool100",n:"クール100",t:"チルド/冷凍 100サイズ"},{id:"cool80",n:"クール80",t:"チルド/冷凍 80サイズ"},{id:"land140",n:"陸便140",t:"常温 140サイズ"},{id:"land100",n:"陸便100",t:"常温 100サイズ"},{id:"land80",n:"陸便80",t:"常温 80サイズ"}];
 var CO={
   tanba:{n:"株式会社丹波農商",abbr:"（株）丹波農商",c:"#1e3a6e",zip:"〒669-4341",addr:"兵庫県丹波市市島町上竹田915-5",tel:"050-8890-8997",fax:"050-8890-8987",email:"tamba.nosho@gmail.com",person:"栗原優介",regno:"T5140001115497",bank:"JA丹波ひかみ 市島支店　普通　0091205",bankName:"代表取締役　大塩敦史",bankNote:"※振込手数料はお客様負担でお願いします。"},
   tanno:{n:"株式会社丹農食品",abbr:"（株）丹農食品",c:"#166534",zip:"〒669-4341",addr:"兵庫県丹波市市島町上竹田915-5",tel:"050-8890-8997",fax:"050-8890-8987",email:"tamba.nosho@gmail.com",person:"栗原優介",regno:"T8140001127820",bank:"丹波ひかみ農業組合 市島支店　普通　0098109",bankName:"株）丹農食品",bankNote:""}
@@ -403,7 +403,8 @@ var STOCK=[
   {id:"s_negi",n:"岩津ネギ",type:"raw",cat:"fresh",u:"本",stock:0,minStock:20,weeklyNeed:0,unitCost:180,linked:["岩津ネギ仕入れ"],linkedPid:"negi"},
   // 段ボールはチルド・常温共通なのでサイズ別のみ（クール/陸便の区別は送料計算用）
   {id:"bx_140",n:"段ボール 140サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool140","land140"]},
-  {id:"bx_100",n:"段ボール 100サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool100","land100"]}
+  {id:"bx_100",n:"段ボール 100サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool100","land100"]},
+  {id:"bx_80",n:"段ボール 80サイズ（クール・陸便共通）",type:"box",cat:"box",u:"枚",stock:0,minStock:15,unitCost:0,linked:[],boxIds:["cool80","land80"]}
 ];
 
 var OR=[];
@@ -856,7 +857,7 @@ function rCheckOrder(o){
     var ck=0;for(var i=0;i<its.length;i++){if(A.chk[o.id+its[i].pid])ck++;}
     var ok=ck===its.length;
     var step=A.cst[gk]||"items";
-    var bc=A.bct[gk]||{cool140:0,cool100:0,land140:0,land100:0};
+    var bc=A.bct[gk]||{cool140:0,cool100:0,cool80:0,land140:0,land100:0,land80:0};
     var tb=0;var bids=Object.keys(bc);for(var i=0;i<bids.length;i++)tb+=bc[bids[i]]||0;
     if(step!=="done")allDone=false;
     var done=step==="done";
@@ -935,11 +936,11 @@ function rCheckOrder(o){
   return h+'</div>';
 }
 function toggleCheck(oid,pid,val){A.chk[oid+pid]=val;re();}
-function goBoxStep(gk){A.cst[gk]="boxes";if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,land140:0,land100:0};re();}
+function goBoxStep(gk){A.cst[gk]="boxes";if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,cool80:0,land140:0,land100:0,land80:0};re();}
 function backToItems(gk){A.cst[gk]="items";re();}
 function backToBoxes(gk){A.cst[gk]="boxes";re();}
 function doneGroup(gk){A.cst[gk]="done";re();}
-function setBox(gk,bid,d){if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,land140:0,land100:0};A.bct[gk][bid]=Math.max(0,(A.bct[gk][bid]||0)+d);re();}
+function setBox(gk,bid,d){if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,cool80:0,land140:0,land100:0,land80:0};A.bct[gk][bid]=Math.max(0,(A.bct[gk][bid]||0)+d);re();}
 function markShipped(oid){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
   if(o){
@@ -1189,8 +1190,8 @@ function rDash(){
   }
   h+='</div>';
   h+='<div class="card"><div style="font-weight:600;margin-bottom:10px">📦 佐川急便 送料一覧（税抜）</div>';
-  h+='<div class="tw"><table style="min-width:280px"><thead><tr><th style="text-align:left">地域</th><th>クール100</th><th>クール140</th><th>陸便100</th><th>陸便140</th></tr></thead><tbody>';
-  var rkeys=Object.keys(RT);for(var i=0;i<rkeys.length;i++){var rk=rkeys[i];h+='<tr><td style="font-weight:600">'+RL[rk]+'</td><td>¥'+fmt(RT[rk].cool100)+'</td><td>¥'+fmt(RT[rk].cool140)+'</td><td>¥'+fmt(RT[rk].land100)+'</td><td>¥'+fmt(RT[rk].land140)+'</td></tr>';}
+  h+='<div class="tw"><table style="min-width:280px"><thead><tr><th style="text-align:left">地域</th>';for(var i=0;i<BX.length;i++)h+='<th>'+BX[i].n+'</th>';h+='</tr></thead><tbody>';
+  var rkeys=Object.keys(RT);for(var i=0;i<rkeys.length;i++){var rk=rkeys[i];h+='<tr><td style="font-weight:600">'+RL[rk]+'</td>';for(var q=0;q<BX.length;q++){var v=RT[rk][BX[q].id]||0;h+='<td>'+(v?'¥'+fmt(v):'<span style="color:#dc2626">未設定</span>')+'</td>';}h+='</tr>';}
   h+='</tbody></table></div></div>';
   return h;
 }
