@@ -44,6 +44,10 @@ async function captureWorkOrder(outPath){
   const outDir=path.join(__dirname,"..","daily","k9x2v7q4");fs.mkdirSync(outDir,{recursive:true});
   await captureWorkOrder(path.join(outDir,"workorder.jpg"));
   if(process.env.DRY_RUN==="1"){console.log("DRY_RUN=1 のため送信しません");return;}
+  // 同じ日に2回送らない（手動送信のあとに遅れた定時実行が動いても重複しない）
+  const todayStr=S.today();
+  try{const r0=await S.supaFetch("GET","stock_items?select=name&id=eq.cfg_daily_sent");const d0=await r0.json();
+    if(Array.isArray(d0)&&d0.length&&d0[0].name===todayStr){console.log("本日("+todayStr+")はすでに送信済みのため送信しません");return;}}catch(e){console.warn("送信済みチェック失敗",e);}
   let to=process.env.KITCHEN_GROUP_ID||"";
   if(!to){const r=await S.supaFetch("GET","stock_items?select=name&id=eq.cfg_kitchen");const d=await r.json();if(Array.isArray(d)&&d.length){try{to=JSON.parse(d[0].name).groupId||"";}catch(e){}}}
   if(!to){console.error("送信先（食品グループID）が未設定です");process.exit(1);}
@@ -51,4 +55,5 @@ async function captureWorkOrder(outPath){
   const r=await fetch(S.GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({type:"push",to,message:text,imageUrl})});
   const t=await r.text();console.log("send:",t);
   if(!t.includes('"ok":true'))process.exit(1);
+  try{await S.supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_daily_sent",name:todayStr,stock:0});}catch(e){console.warn("送信済み記録失敗",e);}
 })().catch(e=>{console.error(e);process.exit(1);});
