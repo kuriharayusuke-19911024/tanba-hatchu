@@ -373,7 +373,7 @@ var STOCK=[
   {id:"s_rice",n:"米（但馬米穀在庫・管理外）",type:"raw",cat:"other",u:"袋",stock:0,minStock:0,noStock:true,weeklyNeed:0,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
   {id:"s_potato",n:"ジャガイモ",type:"ingredient",cat:"fresh",u:"kg",stock:10,minStock:50,weeklyNeed:0,unitCost:0.3,linked:["ジャガイモ"],linkedPid:"potato"},
   {id:"s_yam",n:"長いも（1箱10kg）",type:"raw",cat:"fresh",u:"kg",stock:0,minStock:30,weeklyNeed:0,unitCost:120,linked:["長いも仕入れ"],linkedPid:"yam"},
-  {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:0,minStock:500,weeklyNeed:0,unitCost:25,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
+  {id:"s_mushroom",n:"椎茸（小）",type:"raw",cat:"fresh",u:"個",stock:0,minStock:500,weeklyNeed:0,unitCost:20,linked:["椎茸仕入れ"],linkedPid:"mushroom"},
   {id:"raw_cheese",n:"チーズ原材料（燻製前）",type:"raw",cat:"frozen",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:400,linked:[],linkedPid:null},
   {id:"proc_cheese",n:"燻製チーズ（加工済）",type:"processed",cat:"chilled",u:"個",stock:0,minStock:30,weeklyNeed:0,unitCost:800,linked:["燻製チーズ（加工済）"],linkedPid:"cheese"},
   {id:"raw_shrimp",n:"冷凍エビ（原材料）",type:"raw",cat:"frozen",u:"ケース",stock:0,minStock:8,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"shrimp"},
@@ -391,7 +391,7 @@ var STOCK=[
   {id:"s_sugar",n:"砂糖",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_vinegar",n:"酢（1本1.8L）",type:"ingredient",cat:"seasoning",u:"g",pack:1800,stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_kuroedamame",n:"丹波黒枝豆",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:["黒枝豆仕入れ"],linkedPid:"kuroedamame"},
-  {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"本",stock:0,minStock:0,weeklyNeed:0,unitCost:200,linked:["大根仕入れ"],linkedPid:"daikon"},
+  {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"kg",stock:0,minStock:0,weeklyNeed:0,unitCost:165,linked:["大根仕入れ"],linkedPid:"daikon"},
   {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:20,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"gyu"},
   {id:"s_aonegi",n:"青ネギ",type:"ingredient",cat:"fresh",u:"本",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_ginger",n:"生姜",type:"ingredient",cat:"fresh",u:"g",stock:0,minStock:500,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
@@ -1355,10 +1355,10 @@ function rStock(){
   h+='<div class="card" style="border-left:4px solid #0f766e;margin-bottom:12px">';
   h+='<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#0f766e">🥬 大根おろし 加工登録</div>';
   h+='<div style="display:flex;gap:10px;margin-bottom:12px">';
-  h+='<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#1e40af;margin-bottom:4px">原材料（大根）</div><div style="font-size:24px;font-weight:700;color:#1e3a6e">'+(rawD?rawD.stock:0)+'<span style="font-size:12px">本</span></div></div>';
+  h+='<div style="flex:1;background:#dbeafe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#1e40af;margin-bottom:4px">原材料（大根）</div><div style="font-size:24px;font-weight:700;color:#1e3a6e">'+(rawD?rawD.stock:0)+'<span style="font-size:12px">kg</span></div></div>';
   h+='<div style="display:flex;align-items:center;font-size:24px;color:#0f766e">→</div>';
   h+='<div style="flex:1;background:#ccfbf1;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:#0f766e;margin-bottom:4px">大根おろし（加工済パック）</div><div style="font-size:24px;font-weight:700;color:#0f766e">'+(procD?procD.stock:0)+'<span style="font-size:12px">パック</span></div></div></div>';
-  h+='<div style="font-size:12px;color:#6b7280;background:#f0fdfa;border-radius:8px;padding:8px 12px;margin-bottom:10px">大根1本 → 大根おろし1パック。真空パックも同じ枚数減ります（残 '+(vp?vp.stock:0)+'枚）</div>';
+  h+='<div style="font-size:12px;color:#6b7280;background:#f0fdfa;border-radius:8px;padding:8px 12px;margin-bottom:10px">大根1kg → 大根おろし1パック（1kg）。真空パックも同じ枚数減ります（残 '+(vp?vp.stock:0)+'枚）</div>';
   h+='<div style="display:flex;gap:8px;align-items:center"><input type="number" id="daikon_proc" placeholder="作ったパック数" style="flex:1;padding:8px 10px" inputmode="numeric">';
   h+='<button onclick="procDaikon()" style="padding:9px 16px;background:#0f766e;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;flex-shrink:0;cursor:pointer">加工登録 ✓</button></div>';
   h+='</div>';
@@ -1464,14 +1464,14 @@ function procDaikon(){
   if(!n||n<=0)return alert("作ったパック数を入力してください");
   var raw=getStock("s_daikon"),proc=getStock("s_daikon_p"),vp=getStock("s_vacpack");
   if(!proc)return alert("在庫データが見つかりません");
-  if(raw&&raw.stock<n){if(!confirm("大根の在庫("+raw.stock+"本)より多い数量です。続けますか？"))return;}
+  if(raw&&raw.stock<n){if(!confirm("大根の在庫("+raw.stock+"kg)より多い数量です。続けますか？"))return;}
   if(el)el.value="";
   withFreshStock(function(){
     if(raw)raw.stock=Math.max(0,Math.round((raw.stock-n)*100)/100);proc.stock=Math.round((proc.stock+n)*100)/100;
-    var items=[{mat:"大根おろし（加工済パック）",qty:-n,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id}];if(raw)items.unshift({mat:"大根（原材料）",qty:n,u:"本",prod:"加工作業",remain:raw.stock,sid:raw.id});
+    var items=[{mat:"大根おろし（加工済パック）",qty:-n,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id}];if(raw)items.unshift({mat:"大根（原材料）",qty:n,u:"kg",prod:"加工作業",remain:raw.stock,sid:raw.id});
     if(vp){vp.stock=Math.max(0,vp.stock-n);items.push({mat:"真空パック（袋）",qty:n,u:"枚",prod:"加工作業",remain:vp.stock,sid:vp.id});}
     SLOG.unshift({oid:"proc",st:"加工作業",d:today(),ts:new Date().toLocaleString("ja-JP"),items:items});
-    alert("✅ 加工完了！\n大根おろし "+n+"パック追加\n\n"+(raw?"大根残: "+raw.stock+"本\n":"")+"大根おろしパック残: "+proc.stock+"パック");
+    alert("✅ 加工完了！\n大根おろし "+n+"パック追加\n\n"+(raw?"大根残: "+raw.stock+"kg\n":"")+"大根おろしパック残: "+proc.stock+"パック");
   });
 }
 function procGyu(){
