@@ -1463,15 +1463,15 @@ function procDaikon(){
   var el=document.getElementById("daikon_proc");var n=parseFloat(el?el.value:0)||0;
   if(!n||n<=0)return alert("作ったパック数を入力してください");
   var raw=getStock("s_daikon"),proc=getStock("s_daikon_p"),vp=getStock("s_vacpack");
-  if(!raw||!proc)return alert("在庫データが見つかりません");
-  if(raw.stock<n){if(!confirm("大根の在庫("+raw.stock+"本)より多い数量です。続けますか？"))return;}
+  if(!proc)return alert("在庫データが見つかりません");
+  if(raw&&raw.stock<n){if(!confirm("大根の在庫("+raw.stock+"本)より多い数量です。続けますか？"))return;}
   if(el)el.value="";
   withFreshStock(function(){
-    raw.stock=Math.max(0,Math.round((raw.stock-n)*100)/100);proc.stock=Math.round((proc.stock+n)*100)/100;
-    var items=[{mat:"大根（原材料）",qty:n,u:"本",prod:"加工作業",remain:raw.stock,sid:raw.id},{mat:"大根おろし（加工済パック）",qty:-n,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id}];
+    if(raw)raw.stock=Math.max(0,Math.round((raw.stock-n)*100)/100);proc.stock=Math.round((proc.stock+n)*100)/100;
+    var items=[{mat:"大根おろし（加工済パック）",qty:-n,u:"パック",prod:"加工完了",remain:proc.stock,sid:proc.id}];if(raw)items.unshift({mat:"大根（原材料）",qty:n,u:"本",prod:"加工作業",remain:raw.stock,sid:raw.id});
     if(vp){vp.stock=Math.max(0,vp.stock-n);items.push({mat:"真空パック（袋）",qty:n,u:"枚",prod:"加工作業",remain:vp.stock,sid:vp.id});}
     SLOG.unshift({oid:"proc",st:"加工作業",d:today(),ts:new Date().toLocaleString("ja-JP"),items:items});
-    alert("✅ 加工完了！\n大根 "+n+"本 → 大根おろし "+n+"パック\n\n大根残: "+raw.stock+"本\n大根おろしパック残: "+proc.stock+"パック");
+    alert("✅ 加工完了！\n大根おろし "+n+"パック追加\n\n"+(raw?"大根残: "+raw.stock+"本\n":"")+"大根おろしパック残: "+proc.stock+"パック");
   });
 }
 function procGyu(){
