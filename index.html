@@ -265,6 +265,8 @@ var RL={ka:"関東（東京）",os:"関西（大阪）"};
 var RT={ka:{cool80:0,cool100:1300,cool140:1800,land80:0,land100:920,land140:1000},os:{cool80:0,cool100:1150,cool140:1600,land80:0,land100:850,land140:900}}; // 80サイズの送料は未設定（0）
 // 米の固定送料（但馬米穀が出荷）
 var RICE_SHIP={ka:1500,os:1000};
+// 2年熟成男爵の送料（尾藤農産→店舗 直送、冷蔵5kg）：関東¥1,200・関西¥1,300。1発注(5kg)ごと
+var DANSHAKU_SHIP={ka:1200,os:1300};
 var BX=[{id:"cool140",n:"クール140",t:"チルド/冷凍 140サイズ"},{id:"cool100",n:"クール100",t:"チルド/冷凍 100サイズ"},{id:"cool80",n:"クール80",t:"チルド/冷凍 80サイズ"},{id:"land140",n:"陸便140",t:"常温 140サイズ"},{id:"land100",n:"陸便100",t:"常温 100サイズ"},{id:"land80",n:"陸便80",t:"常温 80サイズ"}];
 var CO={
   tanba:{n:"株式会社丹波農商",abbr:"（株）丹波農商",c:"#1e3a6e",zip:"〒669-4341",addr:"兵庫県丹波市市島町上竹田915-5",tel:"050-8890-8997",fax:"050-8890-8987",email:"tamba.nosho@gmail.com",person:"栗原優介",regno:"T5140001115497",bank:"JA丹波ひかみ 市島支店　普通　0091205",bankName:"代表取締役　大塩敦史",bankNote:"※振込手数料はお客様負担でお願いします。"},
@@ -508,6 +510,7 @@ function calcMonthData(month,sf,rf){
       // 米：精米代（袋ごと）＋但馬米穀出荷の送料（30kg=1袋ごと）を請求書と同じ計算で加算
       var rq=o.it["rice"]||0;
       if(rq>0){var sp2=null;for(var l=0;l<PD.length;l++){if(PD[l].id==="seimaihi"){sp2=PD[l];break;}}if(sp2)order+=sp2.sp*rq;var rs=(RICE_SHIP[RG[s]||"ka"]||1500)*rq;ship+=rs;order+=rs;}
+      var dq=o.it["danshaku"]||0;if(dq>0){var ds=(DANSHAKU_SHIP[RG[s]||"ka"]||1200)*dq;ship+=ds;order+=ds;}
       if(o.bx){for(var bi=0;bi<BX.length;bi++){var sc=bp(BX[bi].id,s)*(o.bx[BX[bi].id]||0);ship+=sc;order+=sc;}}
       cnt++;
     }
@@ -1263,6 +1266,9 @@ function buildInvRows(st){
     // 丹農食品：段ボール実費
     var bt={};for(var i=0;i<flo.length;i++){if(!flo[i].bx)continue;var bids=Object.keys(flo[i].bx);for(var j=0;j<bids.length;j++)bt[bids[j]]=(bt[bids[j]]||0)+(flo[i].bx[bids[j]]||0);}
     for(var bi=0;bi<BX.length;bi++){var b=BX[bi];if(!(bt[b.id]>0))continue;var bq=bt[b.id];var key=st+"box"+b.id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var pr=bp(b.id,st);rows.push({t:"b",id:"box"+b.id,n:b.n+"（送料）",u:"箱",bq:bq,q:fq,p:pr,tx:0.10,c:pr});}
+    // 男爵の送料（尾藤農産 直送）1発注(5kg)ごと
+    var dq=li["danshaku"]||0;
+    if(dq>0){var dsh=DANSHAKU_SHIP[RG[st]||"ka"]||1200;var dkey=st+"danshakuship";var dfq=A.eqt[dkey]!==undefined?Number(A.eqt[dkey]):dq;rows.push({t:"b",id:"danshakuship",n:"男爵　送料（尾藤農産 直送）",u:"口",bq:dq,q:dfq,p:dsh,tx:0.10,c:dsh});}
   }
   return rows;
 }
