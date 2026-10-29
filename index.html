@@ -156,7 +156,7 @@ function applyProductCfg(){
   var mks=Object.keys(PCFG.stockMin||{});
   for(i=0;i<mks.length;i++){for(j=0;j<STOCK.length;j++){if(STOCK[j].id===mks[i]){var mv=PCFG.stockMin[mks[i]];if(typeof mv==="object"&&mv){if(mv.minStock!==undefined)STOCK[j].minStock=mv.minStock;if(mv.weeklyNeed!==undefined)STOCK[j].weeklyNeed=mv.weeklyNeed;if(mv.unitCost!==undefined)STOCK[j].unitCost=mv.unitCost;}else{STOCK[j].minStock=mv;}break;}}}
   // 在庫タブで削除した食材
-  for(i=0;i<PCFG.stockDeleted.length;i++){for(j=0;j<STOCK.length;j++){if(STOCK[j].id===PCFG.stockDeleted[i]){STOCK.splice(j,1);break;}}}
+  for(i=0;i<PCFG.stockDeleted.length;i++){for(j=0;j<STOCK.length;j++){if(STOCK[j].id===PCFG.stockDeleted[i]){STOCK_DELETED_DEF[STOCK[j].id]=STOCK[j];STOCK.splice(j,1);break;}}}
   syncVis();
 }
 function loadProductCfg(callback){
@@ -367,7 +367,27 @@ function getStockAlerts(){
 function pn(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].n;}return id;}
 function pu(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id)return PD[i].u;}return "";}
 function qd(id,q){var p=null;for(var i=0;i<PD.length;i++){if(PD[i].id===id){p=PD[i];break;}}if(!p)return q+"";if(p.dispMult&&p.dispUnit)return q+p.u+"（"+(q*p.dispMult)+p.dispUnit+"）";return q+" "+p.u;}
-function gc(p){if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
+var STOCK_DELETED_DEF={}; // 在庫タブで削除された項目の定義（原価計算用に保持）
+function stockDef(sid){return getStock(sid)||STOCK_DELETED_DEF[sid]||null;}
+// 在庫1単位あたりの原価。加工品は原材料から自動計算（在庫タブで単価が入っていればそちらを優先）
+function stockUnitCost(sid){
+  var st=stockDef(sid);if(!st)return 0;if(st.unitCost>0)return st.unitCost;
+  var vp=stockDef("s_vacpack");var vpc=vp?vp.unitCost:0;
+  if(sid==="proc_gyu"){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;var c=0;for(var i=0;i<GYU_BATCH.length;i++)c+=GYU_BATCH[i].qty*stockUnitCost(GYU_BATCH[i].sid);return c/per+vpc;}
+  if(sid==="s_daikon_p")return stockUnitCost("s_daikon")+vpc;
+  if(sid==="proc_shrimp")return stockUnitCost("raw_shrimp")/600;
+  if(sid==="proc_cheese")return stockUnitCost("raw_cheese");
+  return 0;
+}
+// 商品1単位の原価：在庫の単価×使用量（STOCK_MAP）から自動計算。在庫連動がない商品は手入力の内訳
+function autoCostLines(pid){
+  var map=STOCK_MAP[pid];if(!map||!map.length)return null;var lines=[];
+  for(var i=0;i<map.length;i++){var st=stockDef(map[i].sid);if(!st)continue;var uc=stockUnitCost(map[i].sid);lines.push({n:st.n,q:map[i].qty,u:st.u,c:uc,sub:map[i].qty*uc});}
+  return lines;
+}
+function gc(p){
+  var L=autoCostLines(p.id);if(L){var t=0;for(var i=0;i<L.length;i++)t+=L[i].sub;if(t>0)return t;}
+  if(!p.ings)return 0;var s=0;for(var i=0;i<p.ings.length;i++)s+=p.ings[i].q*p.ings[i].c;return s;}
 
 var STOCK=[
   {id:"s_rice",n:"米（但馬米穀在庫・管理外）",type:"raw",cat:"other",u:"袋",stock:0,minStock:0,noStock:true,weeklyNeed:0,unitCost:18000,linked:["米（仕入れ）"],linkedPid:"rice"},
@@ -1870,7 +1890,7 @@ function rMaster(){
     h+='<div style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div style="width:4px;height:16px;background:'+co2.c+';border-radius:2px"></div><div style="font-weight:700;font-size:13px;color:'+co2.c+'">'+co2.n+'</div></div>';
     h+='<div class="card" style="padding:0;overflow:hidden">';
     for(var i=0;i<ps.length;i++){
-      var p=ps[i];var cost=0;for(var j=0;j<p.ings.length;j++)cost+=p.ings[j].q*p.ings[j].c;cost=Math.round(cost);
+      var p=ps[i];var cost=Math.round(gc(p));
       var mg=p.sp>0?Math.round((p.sp-cost)/p.sp*100):0;var mc=mg>=50?"#16a34a":mg>=30?"#92400e":"#dc2626";var isLast=i===ps.length-1;
       h+='<div style="display:flex;align-items:center;gap:8px;padding:10px 11px;border-bottom:'+(isLast?"none":"1px solid #e2e8f0")+';opacity:'+(p.v?1:0.55)+';background:'+(p.v?"#fff":"#f8fafc")+'">';
       h+='<button onclick="openME(\''+p.id+'\')" style="flex:1;background:none;border:none;text-align:left;cursor:pointer;padding:0;min-width:0"><div style="font-weight:600;font-size:13px;color:#1e40af">'+p.n+'</div>';
@@ -2000,7 +2020,15 @@ function rME(){
   h+='<button onclick="ME.tx=0.08;re()" style="padding:8px;font-size:12px;'+(ME.tx===0.08?"background:#dcfce7;border-color:#86efac;color:#166634":"")+'">食品（軽減8%）</button>';
   h+='<button onclick="ME.tx=0.10;re()" style="padding:8px;font-size:12px;'+(ME.tx===0.10?"background:#fef3c7;border-color:#f59e0b;color:#92400e":"")+'">その他（標準10%）</button></div></div>';
   h+='<div style="margin-bottom:12px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">販売単価（円）</label><input type="number" value="'+p.sp+'" onchange="ME.sp=parseInt(this.value)||0;re()"></div>';
-  h+='<div style="font-weight:700;margin-bottom:8px">材料費・経費の内訳</div>';
+  var AL=autoCostLines(p.id);var at=0;if(AL){for(var i=0;i<AL.length;i++)at+=AL[i].sub;}
+  if(AL&&at>0){
+    h+='<div style="font-weight:700;margin-bottom:6px">原価（在庫タブの単価から自動計算）</div>';
+    h+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px">';
+    for(var i=0;i<AL.length;i++){h+='<div style="display:flex;justify-content:space-between"><span>'+esc(AL[i].n)+'　'+AL[i].q+AL[i].u+' × ¥'+(Math.round(AL[i].c*100)/100)+'</span><span>¥'+fmt(Math.round(AL[i].sub))+'</span></div>';}
+    h+='<div style="display:flex;justify-content:space-between;border-top:1px solid #bbf7d0;margin-top:6px;padding-top:6px;font-weight:700"><span>原価合計</span><span>¥'+fmt(Math.round(at))+'</span></div>';
+    h+='<div style="color:#6b7280;margin-top:4px">単価を直すときは在庫タブの「単価」欄で。下の手入力の内訳は使われません</div></div>';
+  }
+  h+='<div style="font-weight:700;margin-bottom:8px">材料費・経費の内訳'+(AL&&at>0?'（手入力・参考）':'')+'</div>';
   for(var i=0;i<p.ings.length;i++){
     var ing=p.ings[i];
     h+='<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:7px"><div style="display:flex;gap:6px;margin-bottom:6px"><input style="flex:2" value="'+esc(ing.n)+'" placeholder="品名" onchange="updateIng('+ing.id+',\'n\',this.value)"><button onclick="removeIng('+ing.id+')" style="flex-shrink:0;padding:5px 9px;color:#dc2626;border-color:#fca5a5">✕</button></div>';
