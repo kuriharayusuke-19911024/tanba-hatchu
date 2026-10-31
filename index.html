@@ -204,8 +204,14 @@ function withFreshStock(fn){
 
 // 全発注データをSupabaseから読み込む
 function loadOrders(callback){
-  supaFetch("GET","orders?select=*&order=id.desc")
-    .then(function(r){return r.json();})
+  // Supabaseは1回の取得が最大1000件なので、1000件ずつ全件読む
+  var PAGE=1000;var all=[];
+  var fetchPage=function(offset){
+    return supaFetch("GET","orders?select=*&order=id.desc&limit="+PAGE+"&offset="+offset)
+      .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();})
+      .then(function(data){if(!Array.isArray(data))throw new Error("bad data");all=all.concat(data);if(data.length===PAGE)return fetchPage(offset+PAGE);return all;});
+  };
+  fetchPage(0)
     .then(function(data){
       if(!Array.isArray(data)){console.error("Load error",data);if(callback)callback();return;}
       OR=data.map(function(row){
@@ -280,7 +286,7 @@ var PW="1108";
 var ST=["天ぷらとワイン大塩　丸の内店","天ぷらとワイン大塩　日比谷店","天ぷらとワイン大塩　中野店","天ぷらとワイン大塩　天満市場店","天ぷらとワイン大塩　第三ビル店","たこ焼きなにわ"];
 var RG={"天ぷらとワイン大塩　丸の内店":"ka","天ぷらとワイン大塩　日比谷店":"ka","天ぷらとワイン大塩　中野店":"ka","たこ焼きなにわ":"ka","天ぷらとワイン大塩　天満市場店":"os","天ぷらとワイン大塩　第三ビル店":"os"};
 var RL={ka:"関東（東京）",os:"関西（大阪）"};
-var RT={ka:{cool80:0,cool100:1300,cool140:1800,land80:0,land100:920,land140:1000},os:{cool80:0,cool100:1150,cool140:1600,land80:0,land100:850,land140:900}}; // 80サイズの送料は未設定（0）
+var RT={ka:{cool80:1100,cool100:1300,cool140:1800,land80:690,land100:920,land140:1000},os:{cool80:1000,cool100:1150,cool140:1600,land80:620,land100:850,land140:900}}; // 佐川運賃表（クール＝基本運賃＋クール加算 5kg:300/10kg:400/20kg:800）
 // 米の固定送料（但馬米穀が出荷）
 var RICE_SHIP={ka:1500,os:1000};
 // 2年熟成男爵の送料（尾藤農産→店舗 直送、冷蔵5kg）：関東¥1,200・関西¥1,300。1発注(5kg)ごと
