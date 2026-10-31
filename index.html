@@ -74,18 +74,20 @@ function sendLineAlert(message){
 
 // 在庫データをSupabaseに保存（クラウドから読んだ値と違う食材だけ送る＝他端末の変更を上書きしない）
 var _cloudStock={};
+var _stockLoaded=false; // クラウドの在庫を一度でも正常に読めたか（読めていない間は保存しない＝初期値で上書きしない）
+var _stockSaveWarned=false;
 function saveStockToCloud(){
+  if(!_stockLoaded){if(!_stockSaveWarned){_stockSaveWarned=true;alert("在庫データをクラウドから読み込めていないため保存できません。通信状況を確認して、画面を再読み込みしてください。");}return Promise.resolve();}
   var items=[];
   for(var i=0;i<STOCK.length;i++){
     var id=STOCK[i].id;
     if(_cloudStock[id]!==undefined&&Number(_cloudStock[id])===Number(STOCK[i].stock))continue;
     items.push({id:id,name:STOCK[i].n,stock:STOCK[i].stock});
-    _cloudStock[id]=STOCK[i].stock;
   }
   var ps=[];
   for(var i=0;i<items.length;i++){
     (function(item){
-      ps.push(supaFetch("POST","stock_items?on_conflict=id",item).then(function(r){if(!r.ok)r.text().then(function(t){console.error("Stock save error",r.status,t);});}).catch(function(e){console.error("Stock save error",e);}));
+      ps.push(supaFetch("POST","stock_items?on_conflict=id",item).then(function(r){if(r.ok){_cloudStock[item.id]=item.stock;}else{r.text().then(function(t){console.error("Stock save error",r.status,t);});alert("在庫の保存に失敗しました（"+item.name+"）。通信状況を確認してもう一度操作してください。");}}).catch(function(e){console.error("Stock save error",e);alert("在庫の保存に失敗しました（"+item.name+"）。通信状況を確認してもう一度操作してください。");}));
     })(items[i]);
   }
   return Promise.all(ps);
@@ -94,9 +96,10 @@ function saveStockToCloud(){
 // 在庫データをSupabaseから読み込む
 function loadStockFromCloud(callback){
   supaFetch("GET","stock_items?select=*")
-    .then(function(r){return r.json();})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();})
     .then(function(data){
       if(!Array.isArray(data)||data.length===0){if(callback)callback();return;}
+      _stockLoaded=true;
       var byId={};for(var i=0;i<data.length;i++)byId[data[i].id]=data[i];
       for(var i=0;i<data.length;i++){
         var row=data[i];
@@ -120,9 +123,24 @@ function loadStockFromCloud(callback){
 // stock_items テーブルの id="cfg_products" 行の name 列にJSONで保存する
 var PCFG={custom:[],edits:{},deleted:[],stockDeleted:[],stockCustom:[],stockMin:{}};
 var CUSTOM_FIELDS=["n","u","sp","tx","co","v","temp","tempNote","lotSize","lotUnit","minLot","dispUnit","dispMult","ings","stockLink","minStock"];
+var _cfgLoaded=false; // クラウドの商品設定を正常に読めたか（読めていない間は保存しない＝空設定で上書きしない）
 function saveProductCfg(){
-  supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_products",name:JSON.stringify(PCFG),stock:0})
-    .then(function(r){if(!r.ok)r.text().then(function(t){console.error("Product cfg save error",r.status,t);alert("商品設定の保存に失敗しました。通信状況を確認してください。");});})
+  if(!_cfgLoaded){alert("商品設定をクラウドから読み込めていないため保存できません。画面を再読み込みしてください。");return;}
+  // 他端末の変更を消さないよう、保存直前にクラウドの設定を読み直してマージ（自分の変更が優先）
+  supaFetch("GET","stock_items?select=name&id=eq.cfg_products").then(function(r){return r.ok?r.json():null;}).then(function(data){
+    var remote=null;try{if(Array.isArray(data)&&data.length&&data[0].name)remote=JSON.parse(data[0].name);}catch(e){}
+    if(remote){
+      var uni=function(a,b){var o=a.slice();for(var i=0;i<b.length;i++)if(o.indexOf(b[i])<0)o.push(b[i]);return o;};
+      var uniById=function(mine,theirs){var o=mine.slice();for(var i=0;i<theirs.length;i++){var f=false;for(var j=0;j<o.length;j++){if(o[j].id===theirs[i].id){f=true;break;}}if(!f)o.push(theirs[i]);}return o;};
+      PCFG.custom=uniById(PCFG.custom,remote.custom||[]);
+      PCFG.stockCustom=uniById(PCFG.stockCustom,remote.stockCustom||[]);
+      PCFG.deleted=uni(PCFG.deleted,remote.deleted||[]);
+      PCFG.stockDeleted=uni(PCFG.stockDeleted,remote.stockDeleted||[]);
+      PCFG.edits=Object.assign({},remote.edits||{},PCFG.edits);
+      PCFG.stockMin=Object.assign({},remote.stockMin||{},PCFG.stockMin);
+    }
+    return supaFetch("POST","stock_items?on_conflict=id",{id:"cfg_products",name:JSON.stringify(PCFG),stock:0});
+  }).then(function(r){if(!r.ok)r.text().then(function(t){console.error("Product cfg save error",r.status,t);alert("商品設定の保存に失敗しました。通信状況を確認してください。");});})
     .catch(function(e){console.error("Product cfg save error",e);alert("商品設定の保存に失敗しました。");});
 }
 function ensureCustomStock(p){
@@ -161,20 +179,20 @@ function applyProductCfg(){
 }
 function loadProductCfg(callback){
   supaFetch("GET","stock_items?select=name&id=eq.cfg_products")
-    .then(function(r){return r.json();})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();})
     .then(function(data){
       if(Array.isArray(data)&&data.length&&data[0].name){
-        try{var o=JSON.parse(data[0].name);PCFG={custom:o.custom||[],edits:o.edits||{},deleted:o.deleted||[],stockDeleted:o.stockDeleted||[],stockCustom:o.stockCustom||[],stockMin:o.stockMin||{}};}catch(e){console.error("Product cfg parse error",e);}
-      }
+        try{var o=JSON.parse(data[0].name);PCFG={custom:o.custom||[],edits:o.edits||{},deleted:o.deleted||[],stockDeleted:o.stockDeleted||[],stockCustom:o.stockCustom||[],stockMin:o.stockMin||{}};_cfgLoaded=true;}catch(e){console.error("Product cfg parse error",e);}
+      }else if(Array.isArray(data)){_cfgLoaded=true;} // 行がまだ無い（初回）は空設定でOK
       applyProductCfg();
       if(callback)callback();
     })
     .catch(function(e){console.error("Product cfg load error",e);if(callback)callback();});
 }
 function isCustomProd(id){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===id)return true;}return false;}
-function recordProdEdit(p){
+function recordProdEdit(p,onlyFields){
   if(isCustomProd(p.id)){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===p.id){PCFG.custom[i]=JSON.parse(JSON.stringify(p));break;}}ensureCustomStock(p);}
-  else{var e={};for(var k=0;k<CUSTOM_FIELDS.length;k++){var f=CUSTOM_FIELDS[k];if(p[f]!==undefined)e[f]=JSON.parse(JSON.stringify(p[f]));}PCFG.edits[p.id]=e;}
+  else{var e=onlyFields?(PCFG.edits[p.id]||{}):{};var fl=onlyFields||CUSTOM_FIELDS;for(var k=0;k<fl.length;k++){var f=fl[k];if(p[f]!==undefined)e[f]=JSON.parse(JSON.stringify(p[f]));}PCFG.edits[p.id]=e;}
   saveProductCfg();
 }
 
@@ -223,10 +241,10 @@ function saveOrder(o,callback){
   };
   supaFetch("POST","orders?on_conflict=id",row)
     .then(function(r){
-      if(r.ok){if(callback)callback();}
-      else{r.json().then(function(e){console.error("Save error",e);if(callback)callback();});}
+      if(r.ok){if(callback)callback(true);}
+      else{r.text().then(function(e){console.error("Save error",r.status,e);});alert("⚠️ 発注の保存に失敗しました。通信状況を確認して、もう一度送信してください。");if(callback)callback(false);}
     })
-    .catch(function(e){console.error("Save error",e);if(callback)callback();});
+    .catch(function(e){console.error("Save error",e);alert("⚠️ 発注の保存に失敗しました。通信状況を確認して、もう一度送信してください。");if(callback)callback(false);});
 }
 
 // 発注を更新（出荷完了・写真追加など）
@@ -241,15 +259,15 @@ function updateOrder(o,callback){
     stock_log:o.stockLog||[]
   };
   supaFetch("PATCH","orders?id=eq."+o.id,row)
-    .then(function(r){if(callback)callback();})
-    .catch(function(e){console.error("Update error",e);if(callback)callback();});
+    .then(function(r){if(!r.ok){r.text().then(function(t){console.error("Update error",r.status,t);});alert("⚠️ 発注の更新をクラウドに保存できませんでした。通信状況を確認して、画面を再読み込みしてからもう一度操作してください。");}if(callback)callback(r.ok);})
+    .catch(function(e){console.error("Update error",e);alert("⚠️ 発注の更新をクラウドに保存できませんでした。通信状況を確認して、画面を再読み込みしてからもう一度操作してください。");if(callback)callback(false);});
 }
 
 // 発注を削除（新サイクル時）
 function deleteOrder(id,callback){
   supaFetch("DELETE","orders?id=eq."+id)
-    .then(function(r){if(callback)callback();})
-    .catch(function(e){console.error("Delete error",e);if(callback)callback();});
+    .then(function(r){if(!r.ok){alert("⚠️ 発注の削除をクラウドに保存できませんでした。画面を再読み込みして確認してください。");}if(callback)callback(r.ok);})
+    .catch(function(e){console.error("Delete error",e);alert("⚠️ 発注の削除をクラウドに保存できませんでした。画面を再読み込みして確認してください。");if(callback)callback(false);});
 }
 
 // ローディング表示
@@ -314,7 +332,7 @@ var STOCK_MAP={
              {sid:"s_crazysalt",qty:9},{sid:"s_salt",qty:12},{sid:"s_bpepper",qty:2},{sid:"s_ajinomoto",qty:15},
              {sid:"s_sugar",qty:27},{sid:"s_vinegar",qty:27},{sid:"s_vacpack",qty:1}],
   // 長いもわさび漬け 1発注=1500g：長いも1.8kg・浅漬けの素500ml(1.8L本の0.28本)・粉わさび45g
-  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:504},{sid:"s_wasabi",qty:0.045},{sid:"s_vacpack",qty:1}],
+  yam:      [{sid:"s_yam",qty:1.8},{sid:"s_asazuke",qty:500},{sid:"s_wasabi",qty:0.045},{sid:"s_vacpack",qty:1}],
   mushroom: [{sid:"s_mushroom", qty:20}],     // 1発注=20個
   cheese:   [{sid:"proc_cheese",qty:1},{sid:"s_vacpack",qty:0.25}], // 4個で真空パック1枚      // 燻製済みチーズから出庫
   shrimp:   [{sid:"proc_shrimp",qty:300}],    // 1発注=300尾 加工済みエビから出庫
@@ -345,7 +363,7 @@ function deductStockByOrder(it){
       if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=map[j].qty*qty/per;}
       st.stock=Math.round((st.stock-use)*100)/100;
       if(st.stock<0)st.stock=0;
-      if(st.stock<=st.minStock){
+      if(st.minStock>0&&st.stock<=st.minStock){
         alerts.push({n:st.n,stock:st.stock,min:st.minStock,u:st.u,empty:st.stock<=0});
       }
     }
@@ -359,7 +377,7 @@ function getStockAlerts(){
   for(var i=0;i<STOCK.length;i++){
     var s=STOCK[i];
     if(s._hidden||s.type==="box")continue;
-    if(s.stock<=s.minStock){
+    if(s.minStock>0&&s.stock<=s.minStock){
       alerts.push({sid:s.id,n:s.n,stock:s.stock,min:s.minStock,u:s.u,empty:s.stock<=0});
     }
   }
@@ -596,9 +614,11 @@ function getTabs(){
   var out=[];for(var i=0;i<all.length;i++){if(all[i].r.indexOf(A.user.r)>=0)out.push(all[i]);}
   return out;
 }
-function sTab(t){if(t==="sched")loadSched(function(){re();});if(t==="plan")loadSched(function(){loadTasks(function(){re();});});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud();loadStockFromCloud(function(){re();});}}
+function sTab(t){if(t==="check"||t==="history"||t==="workorder")loadOrders(function(){re();});if(t==="sched")loadSched(function(){re();});if(t==="plan")loadSched(function(){loadTasks(function(){re();});});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud().then(function(){loadStockFromCloud(function(){re();});});}}
 function goBack(){if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}}
 function rPage(){
+  // ログイン中の権限で開けないタブは最初のタブに戻す（共有端末で管理者タブが残るのを防ぐ）
+  if(A.user){var tabs=getTabs();var okTab=false;for(var i=0;i<tabs.length;i++){if(tabs[i].id===A.tab)okTab=true;}if(!okTab&&tabs.length){A.tab=tabs[0].id;TAB_HIST=[];}}
   if(A.tab==="order")return rOrder();
   if(A.tab==="history")return rHist();
   if(A.tab==="check")return rCheck();
@@ -653,7 +673,7 @@ function dl(){
   }
   A.user=u;if(u.r==="store")OF.s=u.s;A.tab="order";re();
 }
-function lo(){A.user=null;SU=null;A.hf="all";OF={s:"",q:{},done:false,tanto:"",stockAlerts:[]};re();}
+function lo(){A.user=null;SU=null;A.hf="all";TAB_HIST=[];A.tab="order";OF={s:"",q:{},done:false,tanto:"",stockAlerts:[]};re();}
 
 // ============================================================
 // 発注
@@ -739,8 +759,9 @@ function submitOrder(){
   OR.unshift(newOrder);
   OF.done=true;OF.stockAlerts=[];
   re();
-  saveOrder(newOrder,null);
-  // 在庫を自動減算（クラウドの最新在庫を読んでから減らす。管理者のみアラートを渡す）
+  saveOrder(newOrder,function(ok){
+  if(!ok){for(var i=0;i<OR.length;i++){if(OR[i].id===newOrder.id){OR.splice(i,1);break;}}OF.done=false;re();return;}
+  // 在庫を自動減算（保存できてから。クラウドの最新在庫を読んでから減らす。管理者のみアラートを渡す）
   withFreshStock(function(){
   var stockAlerts=deductStockByOrder(it);
   OF.stockAlerts=(A.user.r==="admin"?stockAlerts:[]);
@@ -754,9 +775,9 @@ function submitOrder(){
       sendLineAlert('[\u4e39\u8fb2\u98df\u54c1 \u5728\u5eab\u30a2\u30e9\u30fc\u30c8]\n\u4ee5\u4e0b\u306e\u98df\u6750\u306e\u5728\u5eab\u304c\u30bc\u30ed\u306b\u306a\u308a\u307e\u3057\u305f\uff01\n\n' + emptyItems.join('\n') + '\n\n\u3059\u3050\u5165\u5eab\u767b\u9332\u3092\u304a\u9858\u3044\u3057\u307e\u3059\u3002');
     }
   }
+   });
   });
 }
-
 // ============================================================
 // 発注履歴
 // ============================================================
@@ -965,11 +986,20 @@ function backToBoxes(gk){A.cst[gk]="boxes";re();}
 function doneGroup(gk){A.cst[gk]="done";re();}
 function setBox(gk,bid,d){if(!A.bct[gk])A.bct[gk]={cool140:0,cool100:0,cool80:0,land140:0,land100:0,land80:0};A.bct[gk][bid]=Math.max(0,(A.bct[gk][bid]||0)+d);re();}
 function markShipped(oid){
+  // 他端末で出荷済み・削除済みになっていないかクラウドで確認してから
+  supaFetch("GET","orders?select=id,status&id=eq."+oid).then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(Array.isArray(d)){if(!d.length){alert("この発注は他の端末で削除されています。画面を再読み込みしてください。");loadOrders(function(){re();});return;}
+      if(d[0].status!=="pending"){alert("この発注はすでに出荷完了になっています（他の端末で処理済み）。");loadOrders(function(){re();});return;}}
+    markShippedDo(oid);
+  }).catch(function(){markShippedDo(oid);});
+}
+function markShippedDo(oid){
   var o=null;for(var i=0;i<OR.length;i++){if(OR[i].id===oid){o=OR[i];break;}}
   if(o){
     // 冷凍以外・冷凍の段ボールを合算して保存
-    var bx={};var keys=["c","f"];
-    for(var k=0;k<keys.length;k++){var bb=A.bct[oid+"_"+keys[k]]||{};var ks=Object.keys(bb);for(var i=0;i<ks.length;i++)bx[ks[i]]=(bx[ks[i]]||0)+(bb[ks[i]]||0);}
+    var bx={};var keys=["c","f"];var has={c:false,f:false};
+    var pids0=Object.keys(o.it);for(var i=0;i<pids0.length;i++){var pp0=null;for(var j=0;j<PD.length;j++){if(PD[j].id===pids0[i]){pp0=PD[j];break;}}if(pp0&&pp0.riceShip)continue;if(pp0&&pp0.temp==="frozen")has.f=true;else has.c=true;}
+    for(var k=0;k<keys.length;k++){if(!has[keys[k]])continue;var bb=A.bct[oid+"_"+keys[k]]||{};var ks=Object.keys(bb);for(var i=0;i<ks.length;i++)bx[ks[i]]=(bx[ks[i]]||0)+(bb[ks[i]]||0);}
     o.st="shipped";o.bx=bx;
   }
   A.justShipped=oid;A.justShippedOrder=o;A.tab="check";re();
@@ -1251,7 +1281,7 @@ function buildInvRows(st){
   for(var i=0;i<flo.length;i++){var pids=Object.keys(flo[i].it);for(var j=0;j<pids.length;j++){var pid=pids[j];var found=false;for(var k=0;k<cps.length;k++){if(cps[k].id===pid){found=true;break;}}if(found)li[pid]=(li[pid]||0)+flo[i].it[pid];}}
   if(A.ico==="tanba"&&li["rice"])li["seimaihi"]=(li["seimaihi"]||0)+li["rice"];
   var rows=[];var lkeys=Object.keys(li);
-  for(var i=0;i<lkeys.length;i++){var id=lkeys[i];var bq=li[id];var key=st+id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===id){p=PD[j];break;}}rows.push({t:"p",id:id,n:p?p.n:id,u:p?p.u:"",bq:bq,q:fq,p:p?p.sp:0,tx:p?p.tx:0.08,c:p?gc(p):0});}
+  for(var i=0;i<lkeys.length;i++){var id=lkeys[i];var bq=li[id];var key=A.imn+"|"+A.ico+"|"+st+id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===id){p=PD[j];break;}}rows.push({t:"p",id:id,n:p?p.n:id,u:p?p.u:"",bq:bq,q:fq,p:p?p.sp:0,tx:p?p.tx:0.08,c:p?gc(p):0});}
   // 送料処理：丹波農商（米）は固定送料、丹農食品は段ボール実費
   if(A.ico==="tanba"){
     // 米の送料（但馬米穀出荷）30kg=1袋ごとに 東京¥1,500・大阪¥1,000
@@ -1259,16 +1289,16 @@ function buildInvRows(st){
     var riceShip=RICE_SHIP[rg]||1500;
     var riceQty=li["rice"]||0;
     if(riceQty>0){
-      var key=st+"riceship";var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):riceQty;
+      var key=A.imn+"|"+A.ico+"|"+st+"riceship";var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):riceQty;
       rows.push({t:"b",id:"riceship",n:"米　送料（但馬米穀出荷）",u:"口",bq:riceQty,q:fq,p:riceShip,tx:0.10,c:riceShip});
     }
   } else {
     // 丹農食品：段ボール実費
     var bt={};for(var i=0;i<flo.length;i++){if(!flo[i].bx)continue;var bids=Object.keys(flo[i].bx);for(var j=0;j<bids.length;j++)bt[bids[j]]=(bt[bids[j]]||0)+(flo[i].bx[bids[j]]||0);}
-    for(var bi=0;bi<BX.length;bi++){var b=BX[bi];if(!(bt[b.id]>0))continue;var bq=bt[b.id];var key=st+"box"+b.id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var pr=bp(b.id,st);rows.push({t:"b",id:"box"+b.id,n:b.n+"（送料）",u:"箱",bq:bq,q:fq,p:pr,tx:0.10,c:pr});}
+    for(var bi=0;bi<BX.length;bi++){var b=BX[bi];if(!(bt[b.id]>0))continue;var bq=bt[b.id];var key=A.imn+"|"+A.ico+"|"+st+"box"+b.id;var fq=A.eqt[key]!==undefined?Number(A.eqt[key]):bq;var pr=bp(b.id,st);rows.push({t:"b",id:"box"+b.id,n:b.n+"（送料）",u:"箱",bq:bq,q:fq,p:pr,tx:0.10,c:pr});}
     // 男爵の送料（尾藤農産 直送）1発注(5kg)ごと
     var dq=li["danshaku"]||0;
-    if(dq>0){var dsh=DANSHAKU_SHIP[RG[st]||"ka"]||1200;var dkey=st+"danshakuship";var dfq=A.eqt[dkey]!==undefined?Number(A.eqt[dkey]):dq;rows.push({t:"b",id:"danshakuship",n:"男爵　送料（尾藤農産 直送）",u:"口",bq:dq,q:dfq,p:dsh,tx:0.10,c:dsh});}
+    if(dq>0){var dsh=DANSHAKU_SHIP[RG[st]||"ka"]||1200;var dkey=A.imn+"|"+A.ico+"|"+st+"danshakuship";var dfq=A.eqt[dkey]!==undefined?Number(A.eqt[dkey]):dq;rows.push({t:"b",id:"danshakuship",n:"男爵　送料（尾藤農産 直送）",u:"口",bq:dq,q:dfq,p:dsh,tx:0.10,c:dsh});}
   }
   return rows;
 }
@@ -1295,7 +1325,7 @@ function renderInvCard(st,rows,t,tc,co,si){
     h+='<td style="font-weight:600">'+(r.t==="b"?"📦 ":"")+r.n+'</td>';
     h+='<td><span class="'+(r.tx===0.08?"ft":"tt")+'">'+(r.tx===0.08?"軽8%":"標10%")+'</span></td>';
     h+='<td style="color:#6b7280">'+r.bq+r.u+'</td>';
-    h+='<td><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px"><input type="number" value="'+r.q+'" style="width:46px;text-align:right;padding:3px 4px;font-size:12px" onchange="A.eqt[\''+st+r.id+'\']=this.value;re()"><span style="font-size:10px;color:#6b7280">'+r.u+'</span></div></td>';
+    h+='<td><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px"><input type="number" value="'+r.q+'" style="width:46px;text-align:right;padding:3px 4px;font-size:12px" onchange="A.eqt[\''+A.imn+'|'+A.ico+'|'+st+r.id+'\']=this.value;re()"><span style="font-size:10px;color:#6b7280">'+r.u+'</span></div></td>';
     h+='<td>¥'+fmt(r.p)+'</td><td style="font-weight:700">¥'+fmt(r.p*r.q)+'</td></tr>';
   }
   h+='</tbody></table></div></div>';
@@ -1721,11 +1751,12 @@ function buildPlan(d){
   }
   // --- 加工作業（在庫が少ない順。大根おろし→エビを優先）
   var procs=[];
-  var dp=getStock("s_daikon_p");if(dp){var need=planCeil(sum("daikon")*20-dp.stock);var low=dp.stock<=dp.minStock;if(need>0||low){procs.push({pri:0,ratio:dp.minStock?dp.stock/dp.minStock:0,txt:"大根おろし "+Math.max(need,low?planCeil(dp.minStock-dp.stock):0)+"パック（現在庫 "+dp.stock+"パック"+(need>0?"・未出荷分で"+need+"パック不足":"")+"）"});}}
-  var ps=getStock("proc_shrimp");if(ps){var needS=planCeil(sum("shrimp")*300-ps.stock);var lowS=ps.stock<=ps.minStock;if(needS>0||lowS){var tail=Math.max(needS,lowS?planCeil(ps.minStock-ps.stock):0);var cases=planCeil(tail/600);procs.push({pri:1,ratio:ps.minStock?ps.stock/ps.minStock:0,txt:"むきエビ加工 "+cases+"ケース（約"+(cases*600)+"尾・現在庫 "+ps.stock+"尾）"});}}
-  var pc=getStock("proc_cheese");if(pc&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）"});}
+  // ※在庫は発注時にすでに減算済みなので、未出荷分を二重に引かない（発注点を下回った分だけ）
+  var dp=getStock("s_daikon_p");if(dp){var need=0;var low=dp.minStock>0&&dp.stock<=dp.minStock;if(need>0||low){procs.push({pri:0,ratio:dp.minStock?dp.stock/dp.minStock:0,txt:"大根おろし "+Math.max(need,low?planCeil(dp.minStock-dp.stock):0)+"パック（現在庫 "+dp.stock+"パック"+(need>0?"・未出荷分で"+need+"パック不足":"")+"）"});}}
+  var ps=getStock("proc_shrimp");if(ps){var needS=0;var lowS=ps.minStock>0&&ps.stock<=ps.minStock;if(needS>0||lowS){var tail=Math.max(needS,lowS?planCeil(ps.minStock-ps.stock):0);var cases=planCeil(tail/600);procs.push({pri:1,ratio:ps.minStock?ps.stock/ps.minStock:0,txt:"むきエビ加工 "+cases+"ケース（約"+(cases*600)+"尾・現在庫 "+ps.stock+"尾）"});}}
+  var pc=getStock("proc_cheese");if(pc&&pc.minStock>0&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）"});}
   // 牛すじ煮込み：他の惣菜と同じく在庫（加工済パック）が発注点を下回ったら
-  var pg=getStock("proc_gyu");if(pg){var needG=planCeil(sum("gyu")-pg.stock);var lowG=pg.stock<=pg.minStock;if(needG>0||lowG){var cfgP=getStock("cfg_gyu_packs");var per=(cfgP&&cfgP.stock>0)?cfgP.stock:8;var packs=Math.max(needG,lowG?planCeil(pg.minStock-pg.stock):0);var batches=Math.max(1,planCeil(packs/per));procs.push({pri:2,ratio:pg.minStock?pg.stock/pg.minStock:0,txt:"牛すじ煮込み 10kg×"+batches+"回仕込み（約"+(batches*per)+"パック・現在庫 "+pg.stock+"パック"+(needG>0?"・未出荷分で"+needG+"パック不足":"")+"）"});}}
+  var pg=getStock("proc_gyu");if(pg){var needG=0;var lowG=pg.minStock>0&&pg.stock<=pg.minStock;if(needG>0||lowG){var cfgP=getStock("cfg_gyu_packs");var per=(cfgP&&cfgP.stock>0)?cfgP.stock:8;var packs=Math.max(needG,lowG?planCeil(pg.minStock-pg.stock):0);var batches=Math.max(1,planCeil(packs/per));procs.push({pri:2,ratio:pg.minStock?pg.stock/pg.minStock:0,txt:"牛すじ煮込み 10kg×"+batches+"回仕込み（約"+(batches*per)+"パック・現在庫 "+pg.stock+"パック"+(needG>0?"・未出荷分で"+needG+"パック不足":"")+"）"});}}
   procs.sort(function(a,b){return a.pri-b.pri||a.ratio-b.ratio;});
   // 配分：加工担当者（木村・アルメ・愛華）に順番に
   var workers=[];var wo=["木村みき","藤原アルメ","藤原愛華"];for(var i=0;i<wo.length;i++){if(has(wo[i]))workers.push(wo[i]);}
@@ -1910,7 +1941,7 @@ function rMaster(){
   h+='<button onclick="A.modal={type:\'ap\'};re()" style="width:100%;padding:11px;border:1px dashed #e2e8f0">＋ 商品を追加する</button>';
   return h;
 }
-function toggleVis(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD[i].v=!PD[i].v;recordProdEdit(PD[i]);break;}}syncVis();re();}
+function toggleVis(id){for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD[i].v=!PD[i].v;recordProdEdit(PD[i],["v"]);break;}}syncVis();re();}
 function delProd(id){if(!confirm("削除しますか？（発注画面から消えます。過去の履歴は残ります）"))return;for(var i=0;i<PD.length;i++){if(PD[i].id===id){PD.splice(i,1);break;}}for(var i=0;i<STOCK.length;i++){if(STOCK[i].id==="s_"+id&&STOCK[i].custom){STOCK.splice(i,1);break;}}delete STOCK_MAP[id];if(isCustomProd(id)){for(var i=0;i<PCFG.custom.length;i++){if(PCFG.custom[i].id===id){PCFG.custom.splice(i,1);break;}}}else{if(PCFG.deleted.indexOf(id)<0)PCFG.deleted.push(id);delete PCFG.edits[id];}saveProductCfg();syncVis();re();}
 function openME(id){ME=null;for(var i=0;i<PD.length;i++){if(PD[i].id===id){ME=JSON.parse(JSON.stringify(PD[i]));break;}}A.modal={type:"me"};re();}
 
@@ -2223,7 +2254,7 @@ function saveEO(){
   withFreshStock(function(){
   if(Object.keys(dec).length)deductStockByOrder(dec);
   var incK=Object.keys(inc);
-  for(var i=0;i<incK.length;i++){var map=STOCK_MAP[incK[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st)continue;var use=map[j].qty*inc[incK[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
+  for(var i=0;i<incK.length;i++){var map=STOCK_MAP[incK[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st||st.noStock||st._hidden)continue;var use=map[j].qty*inc[incK[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
   });
 }
 // 管理者：店舗名の変更・発注の削除（出荷前のみ）
@@ -2245,7 +2276,7 @@ function adminDeleteOrder(oid){
   // 在庫を戻す（クラウドの最新値を読んでから）
   withFreshStock(function(){
   var it=o.it||{};var ks=Object.keys(it);
-  for(var i=0;i<ks.length;i++){var map=STOCK_MAP[ks[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st)continue;var use=map[j].qty*it[ks[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
+  for(var i=0;i<ks.length;i++){var map=STOCK_MAP[ks[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st||st.noStock||st._hidden)continue;var use=map[j].qty*it[ks[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
   });
 }
 function closePrintOverlay(){
