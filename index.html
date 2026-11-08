@@ -324,7 +324,7 @@ var PD=[
   {id:"manganji",n:"万願寺唐辛子",u:"発注",sp:0,tx:0.08,v:true,co:"tanno",temp:"season",tempNote:"時期により常温/チルド",lotSize:20,lotUnit:"発注(20本)",minLot:1,dispUnit:"本",dispMult:20,ings:[{id:1,n:"万願寺唐辛子仕入れ",q:20,u:"本",c:0}]},
   {id:"danshaku",n:"2年熟成 男爵（ジャガイモ）",u:"発注",sp:0,tx:0.08,v:true,co:"tanno",temp:"ambient",lotSize:5,lotUnit:"発注(5kg)",minLot:1,dispUnit:"kg",dispMult:5,riceShip:true,shipBy:"尾藤農産",ings:[{id:1,n:"男爵仕入れ",q:5,u:"kg",c:0}]},
   {id:"gyu",n:"牛すじ煮込み",u:"パック",sp:1200,tx:0.08,v:true,co:"tanno",temp:"frozen",lotSize:1,lotUnit:"パック(1.5kg)",minLot:1,dispUnit:"パック",ings:[{id:1,n:"牛すじ仕入れ",q:1,u:"パック",c:600}]},
-  {id:"chestnut",n:"丹波栗渋皮煮",u:"個",sp:18000,tx:0.08,v:false,co:"tanno",temp:"chilled",lotSize:1,lotUnit:"個",minLot:1,dispUnit:"個",ings:[{id:1,n:"丹波栗仕入れ",q:1,u:"個",c:7200}]}
+  {id:"chestnut",n:"丹波栗渋皮煮（1号缶・固形物1.9kg）",u:"缶",sp:15000,tx:0.08,v:true,co:"tanno",temp:"ambient",lotSize:1,lotUnit:"缶(固形物1.9kg)",minLot:1,dispUnit:"缶",ings:[{id:1,n:"渋皮煮仕入れ",q:1,u:"缶",c:7200}]}
 ];
 
 // 温度帯ラベル
@@ -346,7 +346,7 @@ var STOCK_MAP={
   daikon:   [{sid:"s_daikon_p",qty:20}],     // 1発注=20パック。加工済みパックから出庫（大根・真空パックは加工登録時に減る）
   negi:     [{sid:"s_negi",     qty:10}],     // 1発注=10本
   gyu:      [{sid:"proc_gyu",qty:1}],     // 1発注=1パック(1.5kg)。加工済みパックから出庫（原材料は加工登録時に減る）
-  chestnut: []
+  chestnut: [{sid:"s_chestnut",qty:1}]      // 1発注=1缶
 };
 // 牛すじ煮込み 10kg仕込み1回分の原材料（加工登録時に減る）。出来るパック数は在庫タブ「【設定】牛すじ10kg仕込みのパック数」
 var GYU_BATCH=[{sid:"s_gyusuji",qty:10},{sid:"s_aonegi",qty:5},{sid:"s_ginger",qty:100},{sid:"s_daikon_p",qty:0.5},{sid:"s_sake",qty:1400},{sid:"s_mirin",qty:400},{sid:"s_vinegar",qty:50}];
@@ -437,6 +437,7 @@ var STOCK=[
   {id:"s_sugar",n:"砂糖",type:"ingredient",cat:"seasoning",u:"g",stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_vinegar",n:"酢（1本1.8L）",type:"ingredient",cat:"seasoning",u:"g",pack:1800,stock:0,minStock:1000,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
   {id:"s_kuroedamame",n:"丹波黒枝豆",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:["黒枝豆仕入れ"],linkedPid:"kuroedamame"},
+  {id:"s_chestnut",n:"丹波栗渋皮煮（1号缶）",type:"raw",cat:"other",u:"缶",stock:0,minStock:0,weeklyNeed:0,unitCost:7200,linked:["渋皮煮仕入れ"],linkedPid:"chestnut"},
   {id:"s_daikon",n:"大根",type:"raw",cat:"fresh",u:"kg",stock:0,minStock:0,weeklyNeed:0,unitCost:165,linked:["大根仕入れ"],linkedPid:"daikon"},
   {id:"s_gyusuji",n:"牛すじ",type:"raw",cat:"frozen",u:"kg",stock:0,minStock:20,weeklyNeed:0,unitCost:0,linked:[],linkedPid:"gyu"},
   {id:"s_aonegi",n:"青ネギ",type:"ingredient",cat:"fresh",u:"本",stock:0,minStock:0,weeklyNeed:0,unitCost:0,linked:[],linkedPid:null},
