@@ -1344,12 +1344,14 @@ function fcWindowDemand(from,to){
     d=segEnd;}
   return out;
 }
-// 今年の伸び率（直近3か月の合計 ÷ 去年の同じ3か月。0.5〜2.0に収める）
+// 今年の伸び率：品目ごとに「直近3か月の合計 ÷ 去年の同じ3か月」（0.5〜2.0に収める）。去年に無い品目は全体の伸び率を使う
 function fcGrowth(d){
-  var cur=0,prev=0;var ym=d.slice(0,7);
+  var cur={},prev={},tc=0,tp=0;var ym=d.slice(0,7);
   for(var i=1;i<=3;i++){var y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7))-i;while(m<=0){m+=12;y--;}var a=y+"-"+String(m).padStart(2,"0");var b=(y-1)+"-"+String(m).padStart(2,"0");
-    var ma=histMonthData(a,"all"),mb=histMonthData(b,"all");for(var k in FC_MAP){cur+=(ma[k]||0)*(FC_MAP[k].mult||1);prev+=(mb[k]||0)*(FC_MAP[k].mult||1);}}
-  if(!prev||!cur)return 1;var g=cur/prev;return Math.min(2,Math.max(0.5,g));
+    var ma=histMonthData(a,"all"),mb=histMonthData(b,"all");for(var k in FC_MAP){cur[k]=(cur[k]||0)+(ma[k]||0);prev[k]=(prev[k]||0)+(mb[k]||0);tc+=(ma[k]||0)*(FC_MAP[k].mult||1);tp+=(mb[k]||0)*(FC_MAP[k].mult||1);}}
+  var all=(tc&&tp)?Math.min(2,Math.max(0.5,tc/tp)):1;var out={_all:all};
+  for(var k in FC_MAP){out[k]=(cur[k]&&prev[k])?Math.min(2,Math.max(0.5,cur[k]/prev[k])):all;}
+  return out;
 }
 function buildForecast(d,days){
   d=d||today();days=days||14;
@@ -1359,20 +1361,20 @@ function buildForecast(d,days){
   var basis="去年の同じ時期（"+lastYearFrom.slice(5).replace("-","/")+"〜"+fcAddDays(lastYearTo,-1).slice(5).replace("-","/")+"）";
   if(dem._missing&&dem._missing>=days){ // 去年のデータが無ければ直近8週間の平均
     var recentFrom=fcAddDays(d,-56);dem=fcWindowDemand(recentFrom,d);for(var k in dem){if(k!=="_missing")dem[k]=dem[k]/56*days;}basis="直近8週間の平均";}
-  var g=fcGrowth(d);
+  var G=fcGrowth(d);var g=G._all;
   var rows=[];
-  for(var pid in FC_MAP){var f=FC_MAP[pid];var st=getStock(f.sid);if(!st||st._hidden)continue;var q=(dem[pid]||0)*g;if(!q)continue;
+  for(var pid in FC_MAP){var f=FC_MAP[pid];var st=getStock(f.sid);if(!st||st._hidden)continue;var gi=G[pid]||g;var q=(dem[pid]||0)*gi;if(!q)continue;
     var need=q*f.mult;var minS=st.minStock||0;var target=need+minS;var short=Math.max(0,target-st.stock);
-    rows.push({pid:pid,n:f.n,u:f.u,proc:f.proc,orders:Math.round(q*10)/10,ou:(HIST.items.filter(function(x){return x.k===pid;})[0]||{}).u||"",need:Math.round(need),stock:st.stock,min:minS,short:Math.ceil(short),ok:short<=0});}
+    rows.push({pid:pid,n:f.n,u:f.u,proc:f.proc,g:Math.round(gi*100),orders:Math.round(q*10)/10,ou:(HIST.items.filter(function(x){return x.k===pid;})[0]||{}).u||"",need:Math.round(need),stock:st.stock,min:minS,short:Math.ceil(short),ok:short<=0});}
   rows.sort(function(a,b){return (b.short/Math.max(1,b.need))-(a.short/Math.max(1,a.need));});
   return {days:days,basis:basis,growth:Math.round(g*100)/100,rows:rows,from:d,to:fcAddDays(d,days-1)};
 }
 function fcLines(F){
   var L=[];if(!F)return L;
-  L.push("■ これから"+F.days+"日の見込み（"+F.basis+"の発注量 × 今年の伸び "+Math.round(F.growth*100)+"%。目安です）");
+  L.push("■ これから"+F.days+"日の見込み（"+F.basis+"の発注量 × 今年の伸び率。目安です）");
   var any=false;
   for(var i=0;i<F.rows.length;i++){var r=F.rows[i];if(!r.proc)continue;any=true;
-    L.push("・"+r.n+"：出る見込み 約"+r.need.toLocaleString("ja-JP")+r.u+"／在庫 "+r.stock.toLocaleString("ja-JP")+r.u+(r.short>0?" → 仕込み目安 あと"+r.short.toLocaleString("ja-JP")+r.u+(r.min?"（発注点"+r.min.toLocaleString("ja-JP")+r.u+"分を含む）":""):" → 足りています"));}
+    L.push("・"+r.n+"：出る見込み 約"+r.need.toLocaleString("ja-JP")+r.u+"（伸び"+r.g+"%）／在庫 "+r.stock.toLocaleString("ja-JP")+r.u+(r.short>0?" → 仕込み目安 あと"+r.short.toLocaleString("ja-JP")+r.u+(r.min?"（発注点"+r.min.toLocaleString("ja-JP")+r.u+"分を含む）":""):" → 足りています"));}
   var raw=[];for(var i=0;i<F.rows.length;i++){var r=F.rows[i];if(r.proc||r.short<=0)continue;raw.push(r.n+" あと"+r.short.toLocaleString("ja-JP")+r.u);}
   if(raw.length)L.push("・仕入れが要りそう："+raw.join("、"));
   if(!any)L.push("・見込みを出せる加工品がありません");
@@ -1382,10 +1384,10 @@ function rForecast(d){
   if(!HIST){loadHistory();return '<div class="card"><div style="font-weight:600">📈 これからの見込みと仕込み目安</div><div style="font-size:12px;color:#6b7280">過去データを読み込み中…</div></div>';}
   var F=buildForecast(d,14);if(!F||!F.rows.length)return '';
   var h='<div class="card" style="border-left:4px solid #0ea5e9"><div style="font-weight:700;margin-bottom:2px">📈 これから14日の見込みと仕込み目安（'+F.from.slice(5).replace("-","/")+'〜'+F.to.slice(5).replace("-","/")+'）</div>';
-  h+='<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+F.basis+'の発注量 × 今年の伸び '+Math.round(F.growth*100)+'%。在庫と発注点を引いた残りが「仕込み目安」です（あくまで目安。棚卸し後の在庫で見直してください）</div>';
+  h+='<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+F.basis+'の発注量 × 今年の伸び率（品目ごと。全体 '+Math.round(F.growth*100)+'%）。在庫と発注点を引いた残りが「仕込み目安」です（あくまで目安。棚卸し後の在庫で見直してください）</div>';
   h+='<div class="tw"><table style="min-width:340px"><thead><tr><th style="text-align:left">品目</th><th>出る見込み</th><th>在庫</th><th>仕込み・仕入れ目安</th></tr></thead><tbody>';
   for(var i=0;i<F.rows.length;i++){var r=F.rows[i];
-    h+='<tr><td style="font-weight:600">'+r.n+(r.proc?'':' <span style="font-size:10px;color:#6b7280">仕入れ</span>')+'</td><td style="text-align:right">約'+r.need.toLocaleString("ja-JP")+r.u+'<div style="font-size:10px;color:#9ca3af">発注 '+r.orders+(r.ou||"")+'</div></td><td style="text-align:right">'+r.stock.toLocaleString("ja-JP")+r.u+(r.min?'<div style="font-size:10px;color:#9ca3af">発注点 '+r.min+'</div>':'')+'</td><td style="text-align:right;font-weight:700;color:'+(r.short>0?'#b45309':'#16a34a')+'">'+(r.short>0?'あと '+r.short.toLocaleString("ja-JP")+r.u:'足りています')+'</td></tr>';}
+    h+='<tr><td style="font-weight:600">'+r.n+(r.proc?'':' <span style="font-size:10px;color:#6b7280">仕入れ</span>')+'</td><td style="text-align:right">約'+r.need.toLocaleString("ja-JP")+r.u+'<div style="font-size:10px;color:#9ca3af">発注 '+r.orders+(r.ou||"")+'・伸び'+r.g+'%</div></td><td style="text-align:right">'+r.stock.toLocaleString("ja-JP")+r.u+(r.min?'<div style="font-size:10px;color:#9ca3af">発注点 '+r.min+'</div>':'')+'</td><td style="text-align:right;font-weight:700;color:'+(r.short>0?'#b45309':'#16a34a')+'">'+(r.short>0?'あと '+r.short.toLocaleString("ja-JP")+r.u:'足りています')+'</td></tr>';}
   h+='</tbody></table></div></div>';return h;
 }
 function histMonths(){var ms=[];var y=2024,m=12;var end=thisMonth();while(true){var ym=y+"-"+String(m).padStart(2,"0");ms.push(ym);if(ym>=end)break;m++;if(m>12){m=1;y++;}}return ms;}
