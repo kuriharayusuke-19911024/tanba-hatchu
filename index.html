@@ -692,7 +692,7 @@ function rOrder(){
   if(OF.done){
     var h='<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🎉</div>';
     h+='<div style="font-size:20px;font-weight:700;color:#16a34a;margin-bottom:8px">発注完了しました！</div>';
-    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span>'+(OF.replaced?'<br><span style="font-size:12px;color:#b45309">※本日すでに送られていた発注（'+OF.replaced+'件）は、この内容に置き換えました</span>':'')+''+( OF.tanto?'<br><span style="font-size:12px">担当者：'+OF.tanto+'</span>':"")+"</div>";
+    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span>'+(OF.replaced?'<br><span style="font-size:12px;color:#b45309">※本日すでに送られていた発注（'+OF.replaced+'件）は消して、この内容に置き換えました</span>':'')+''+( OF.tanto?'<br><span style="font-size:12px">担当者：'+OF.tanto+'</span>':"")+"</div>";
     // 在庫アラート表示
     var alerts=OF.stockAlerts||[];
     if(alerts.length>0){
@@ -755,24 +755,48 @@ function rOrder(){
     }
     h+='</div>';
   }
-  h+='<button class="bg" style="width:100%;padding:13px;font-size:15px;border-radius:10px" onclick="submitOrder()">発注を送信する 📤</button>';
+  if(OF.dup&&OF.dup.length){
+    h+='<div class="card" style="border:2px solid #f59e0b;background:#fffbeb"><div style="font-weight:700;color:#92400e;margin-bottom:6px">⚠️ 本日すでに '+OF.dup.length+'件 の発注が送られています（未出荷）</div>';
+    for(var di=0;di<OF.dup.length;di++){var dit=OF.dup[di].it||{};var dks=Object.keys(dit);var parts=[];for(var dk=0;dk<dks.length;dk++)parts.push(pn(dks[dk])+" "+qd(dks[dk],dit[dks[dk]]));h+='<div style="font-size:13px;color:#374151;margin-bottom:4px">・'+(parts.join("、")||"（内容なし）")+'</div>';}
+    h+='<div style="font-size:12px;color:#6b7280;margin:8px 0">今回の発注をどう扱いますか？</div>';
+    h+='<button class="bg" style="width:100%;padding:12px;font-size:14px;border-radius:10px;margin-bottom:8px" onclick="submitOrderWith(\'add\')">➕ 追加分として送る（前の発注はそのまま）</button>';
+    h+='<button style="width:100%;padding:12px;font-size:14px;border-radius:10px;background:#b45309;color:#fff;border:none;cursor:pointer;margin-bottom:8px" onclick="submitOrderWith(\'replace\')">🔁 前の発注を消して、今回の内容に置き換える（送り直し）</button>';
+    h+='<button style="width:100%;padding:10px;font-size:13px;border-radius:10px;background:#fff;color:#374151;border:1px solid #d1d5db;cursor:pointer" onclick="OF.dup=null;re()">やめる</button>';
+    h+='</div>';
+  }else if(OF.checking){
+    h+='<div style="text-align:center;padding:13px;color:#6b7280">本日の発注を確認しています…</div>';
+  }else{
+    h+='<button class="bg" style="width:100%;padding:13px;font-size:15px;border-radius:10px" onclick="submitOrder()">発注を送信する 📤</button>';
+  }
   return h;
 }
 function setQ(id,d){OF.q[id]=Math.max(0,(OF.q[id]||0)+d);re();}
-function resetOF(){OF={s:A.user.r==="store"?A.user.s:"",q:{},done:false,tanto:"",stockAlerts:[]};re();}
-function submitOrder(){
+function resetOF(){OF={s:A.user.r==="store"?A.user.s:"",q:{},done:false,tanto:"",stockAlerts:[],dup:null,dupMode:null};re();}
+function submitOrderWith(mode){OF.dupMode=mode;var d=OF.dup||[];OF.dup=null;submitOrder(d);}
+function submitOrder(dupRows){
   if(!OF.s)return alert("店舗を選択してください");
   var it={};var hasItem=false;
   for(var i=0;i<PD.length;i++){var q=OF.q[PD[i].id]||0;if(q>0){it[PD[i].id]=q;hasItem=true;}}
   if(!hasItem)return alert("1品以上入力してください");
+  // 同じ店舗・同じ日の未出荷発注が既にあれば、まず「追加」か「置き換え」かを選んでもらう（二重発注対策・2026-11-09）
+  if(!OF.dupMode){
+    OF.checking=true;re();
+    supaFetch("GET","orders?select=id,items&store=eq."+encodeURIComponent(OF.s)+"&date=eq."+today()+"&status=eq.pending").then(function(r){return r.ok?r.json():[];}).then(function(rows){
+      OF.checking=false;
+      if(Array.isArray(rows)&&rows.length>0){OF.dup=rows.map(function(x){return {id:x.id,it:x.items||{}};});re();return;}
+      OF.dupMode="add";submitOrder([]);
+    }).catch(function(){OF.checking=false;OF.dupMode="add";submitOrder([]);});
+    return;
+  }
+  var mode=OF.dupMode;OF.dupMode=null;var oldRows=(mode==="replace")?(dupRows||[]):[];
   var newOrder={id:Date.now(),s:OF.s,d:today(),it:it,bx:{},st:"pending",sl:[],tanto:(OF.tanto||"").trim()};
   OR.unshift(newOrder);
   OF.done=true;OF.stockAlerts=[];OF.replaced=0;
   re();
   saveOrder(newOrder,function(ok){
   if(!ok){for(var i=0;i<OR.length;i++){if(OR[i].id===newOrder.id){OR.splice(i,1);break;}}OF.done=false;re();return;}
-  // 同じ店舗・同じ日に未出荷の発注が既にあれば、1回目を消して今回の内容に置き換える（二重発注対策・2026-11-09朝ミーティング）
-  replaceSameDayOrders(newOrder,function(oldOrders){
+  // 「置き換え」を選んだときだけ、前の発注を消して在庫を戻す
+  replaceSameDayOrders(oldRows,function(oldOrders){
   OF.replaced=oldOrders.length;
   // 在庫を自動減算（保存できてから。クラウドの最新在庫を読んでから減らす。管理者のみアラートを渡す）
   withFreshStock(function(){
@@ -794,18 +818,15 @@ function submitOrder(){
   });
 }
 // 同じ店舗・同じ日の未出荷発注（今回より前のもの）をクラウドから探して削除する。削除できたものだけ返す
-function replaceSameDayOrders(newOrder,callback){
-  var path="orders?select=id,items,store,date,status&store=eq."+encodeURIComponent(newOrder.s)+"&date=eq."+newOrder.d+"&status=eq.pending&id=lt."+newOrder.id;
-  supaFetch("GET",path).then(function(r){return r.ok?r.json():[];}).then(function(rows){
-    if(!Array.isArray(rows)||rows.length===0){callback([]);return;}
-    var done=0,removed=[];
-    rows.forEach(function(row){
-      deleteOrder(row.id,function(ok){
-        if(ok){removed.push({id:row.id,it:row.items||{}});for(var i=0;i<OR.length;i++){if(OR[i].id===row.id){OR.splice(i,1);break;}}}
-        done++;if(done===rows.length){re();callback(removed);}
-      });
+function replaceSameDayOrders(rows,callback){
+  if(!rows||rows.length===0){callback([]);return;}
+  var done=0,removed=[];
+  rows.forEach(function(row){
+    deleteOrder(row.id,function(ok){
+      if(ok){removed.push({id:row.id,it:row.it||{}});for(var i=0;i<OR.length;i++){if(OR[i].id===row.id){OR.splice(i,1);break;}}}
+      done++;if(done===rows.length){re();callback(removed);}
     });
-  }).catch(function(){callback([]);});
+  });
 }
 // 発注分の在庫を戻す（削除・置き換え時）
 function restoreStockByOrder(it){
@@ -1280,7 +1301,45 @@ function rDash(){
   h+='<div class="tw"><table style="min-width:280px"><thead><tr><th style="text-align:left">地域</th>';for(var i=0;i<BX.length;i++)h+='<th>'+BX[i].n+'</th>';h+='</tr></thead><tbody>';
   var rkeys=Object.keys(RT);for(var i=0;i<rkeys.length;i++){var rk=rkeys[i];h+='<tr><td style="font-weight:600">'+RL[rk]+'</td>';for(var q=0;q<BX.length;q++){var v=RT[rk][BX[q].id]||0;h+='<td>'+(v?'¥'+fmt(v):'<span style="color:#dc2626">未設定</span>')+'</td>';}h+='</tr>';}
   h+='</tbody></table></div></div>';
+  h+=rHistory();
   return h;
+}
+// ============================================================
+// 過去実績（Googleフォーム「アゲル注文書」2024/12〜2026/9 ＋ アプリ 2026/10〜）
+// ============================================================
+var HIST=null,_histLoading=false;
+function loadHistory(){if(HIST||_histLoading)return;_histLoading=true;fetch("data/history.json?v="+today()).then(function(r){return r.json();}).then(function(j){HIST=j;_histLoading=false;re();}).catch(function(){_histLoading=false;HIST={error:true,items:[],stores:[],data:{},range:["",""]};re();});}
+// アプリの発注量を注文書の単位にそろえる（椎茸：発注→個、大根おろし：発注→kg、エビ：発注(300尾)→ケース(600尾)、黒枝豆：発注→kg、万願寺：kg→本(1kg≒34本の目安)）
+var HIST_CONV={mushroom:20,daikon:20,shrimp:0.5,kuroedamame:5,manganji:34};
+function histMonthData(ym,sf){
+  var out={};
+  if(HIST&&HIST.data&&HIST.data[ym]){var sts=Object.keys(HIST.data[ym]);for(var i=0;i<sts.length;i++){if(sf!=="all"&&sts[i]!==sf)continue;var its=HIST.data[ym][sts[i]];for(var k in its)out[k]=(out[k]||0)+its[k];}return out;}
+  for(var i=0;i<OR.length;i++){var o=OR[i];if(o.d.indexOf(ym)!==0)continue;if(sf!=="all"&&o.s!==sf)continue;for(var pid in o.it){var v=o.it[pid]*(HIST_CONV[pid]||1);out[pid]=(out[pid]||0)+v;}}
+  return out;
+}
+function histMonths(){var ms=[];var y=2024,m=12;var end=thisMonth();while(true){var ym=y+"-"+String(m).padStart(2,"0");ms.push(ym);if(ym>=end)break;m++;if(m>12){m=1;y++;}}return ms;}
+function fmtQ(v){if(v===undefined||v===null)return "－";return (Math.round(v*10)/10).toLocaleString("ja-JP");}
+function rHistory(){
+  if(!HIST){loadHistory();return '<div class="card"><div style="font-weight:600">📚 過去実績</div><div style="font-size:12px;color:#6b7280">読み込み中…</div></div>';}
+  var ms=histMonths();var hm=A.histM||ms[ms.length-1];var hs=A.histS||"all";
+  var cur=histMonthData(hm,hs);
+  var pyN=(parseInt(hm.slice(0,4))-1)+"-"+hm.slice(5,7);var py=histMonthData(pyN,hs);
+  var pmI=ms.indexOf(hm)-1;var pmN=pmI>=0?ms[pmI]:null;var pm=pmN?histMonthData(pmN,hs):{};
+  var h='<div class="card"><div style="font-weight:600;margin-bottom:4px">📚 過去実績（月別の発注量）</div>';
+  h+='<div style="font-size:11px;color:#6b7280;margin-bottom:8px">2024/12〜2026/9はGoogleフォーム「アゲル注文書」、2026/10以降はこのアプリの発注。数量は注文書の単位（椎茸＝個、大根おろし＝kg、むきエビ＝ケース(600尾)、万願寺＝本の目安）</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+  h+='<select onchange="A.histM=this.value;re()" style="padding:6px;border:1px solid #d1d5db;border-radius:6px">';for(var i=ms.length-1;i>=0;i--)h+='<option value="'+ms[i]+'"'+(ms[i]===hm?' selected':'')+'>'+ms[i].replace("-","年")+'月</option>';h+='</select>';
+  h+='<select onchange="A.histS=this.value;re()" style="padding:6px;border:1px solid #d1d5db;border-radius:6px"><option value="all"'+(hs==="all"?' selected':'')+'>全店舗</option>';for(var i=0;i<ST.length;i++)h+='<option value="'+ST[i]+'"'+(ST[i]===hs?' selected':'')+'>'+ST[i].replace("天ぷらとワイン大塩　","")+'</option>';h+='</select></div>';
+  var items=HIST.items||[];var seen={};var rows=[];
+  for(var i=0;i<items.length;i++){var it=items[i];var v=cur[it.k],a=py[it.k],b=pm[it.k];if(!v&&!a&&!b)continue;seen[it.k]=1;rows.push({n:it.n,u:it.u,v:v,a:a,b:b});}
+  for(var k in cur){if(seen[k])continue;var p=null;for(var j=0;j<PD.length;j++){if(PD[j].id===k){p=PD[j];break;}}if(!p)continue;rows.push({n:p.n,u:p.u,v:cur[k],a:py[k],b:pm[k]});}
+  if(!rows.length){h+='<div style="font-size:13px;color:#6b7280">この月のデータはありません</div></div>';return h;}
+  h+='<div class="tw"><table style="min-width:320px"><thead><tr><th style="text-align:left">品目</th><th>'+hm.slice(5,7).replace(/^0/,"")+'月</th><th style="color:#6b7280">前月</th><th style="color:#6b7280">前年同月</th><th style="color:#6b7280">単位</th></tr></thead><tbody>';
+  for(var i=0;i<rows.length;i++){var r=rows[i];var d="";if(r.a){var pct=Math.round((r.v||0)/r.a*100-100);d=pct>0?'<span style="color:#16a34a;font-size:11px"> ▲'+pct+'%</span>':pct<0?'<span style="color:#dc2626;font-size:11px"> ▼'+Math.abs(pct)+'%</span>':'';}
+    h+='<tr><td style="font-weight:600">'+r.n+'</td><td style="text-align:right;font-weight:700">'+fmtQ(r.v)+'</td><td style="text-align:right;color:#6b7280">'+fmtQ(r.b)+'</td><td style="text-align:right;color:#6b7280">'+fmtQ(r.a)+d+'</td><td style="font-size:11px;color:#6b7280">'+r.u+'</td></tr>';}
+  h+='</tbody></table></div>';
+  var c=HIST.count&&HIST.count[hm];if(c){var n=0;for(var k in c){if(hs==="all"||k===hs)n+=c[k];}h+='<div style="font-size:11px;color:#6b7280;margin-top:6px">注文書の件数：'+n+'件</div>';}
+  h+='</div>';return h;
 }
 
 // ============================================================
