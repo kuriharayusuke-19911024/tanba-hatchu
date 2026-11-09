@@ -38,6 +38,7 @@ async function captureWorkOrder(outPath){
 
 (async()=>{
   await p(S.loadProductCfg);await p(S.loadOrders);await p(S.loadStockFromCloud);await p(S.loadSched);await p(S.loadTasks);
+  try{S.HIST=JSON.parse(fs.readFileSync(path.join(__dirname,"..","data","history.json"),"utf8"));}catch(e){console.log("過去データ(history.json)を読めませんでした。見込みは省略します。");}
   if(!Object.keys(S._cloudStock||{}).length){console.error("Supabaseからデータを読めませんでした。中止します。");process.exit(1);}
   const text=S.dailyMessageText(S.today());
   console.log("===== 文面 =====\n"+text+"\n================");

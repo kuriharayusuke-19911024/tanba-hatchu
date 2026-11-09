@@ -1317,6 +1317,77 @@ function histMonthData(ym,sf){
   for(var i=0;i<OR.length;i++){var o=OR[i];if(o.d.indexOf(ym)!==0)continue;if(sf!=="all"&&o.s!==sf)continue;for(var pid in o.it){var v=o.it[pid]*(HIST_CONV[pid]||1);out[pid]=(out[pid]||0)+v;}}
   return out;
 }
+// ---- 需要の見込み：去年の同じ時期（14日分）× 今年の伸び率 → 在庫と比べて仕込み目安を出す ----
+// 商品ID → 在庫の見方（stockUnit: 注文書の単位1あたり在庫単位いくつ、sid: 比べる在庫、label: 表示名）
+var FC_MAP={
+  daikon:  {sid:"s_daikon_p", mult:1,   u:"パック", n:"大根おろし（パック）", proc:true},
+  shrimp:  {sid:"proc_shrimp",mult:600, u:"尾",     n:"むきエビ（加工済）", proc:true},
+  cheese:  {sid:"proc_cheese",mult:1,   u:"個",     n:"燻製チーズ（加工済）", proc:true},
+  gyu:     {sid:"proc_gyu",   mult:1,   u:"パック", n:"牛すじ煮込み（パック）", proc:true},
+  potato:  {sid:"s_potato",   mult:2.4, u:"kg",     n:"ジャガイモ（ポテサラ用）", proc:false},
+  yam:     {sid:"s_yam",      mult:1.8, u:"kg",     n:"長いも", proc:false},
+  mushroom:{sid:"s_mushroom", mult:1,   u:"個",     n:"椎茸", proc:false},
+  chestnut:{sid:"s_chestnut", mult:1,   u:"缶",     n:"渋皮煮（缶）", proc:false},
+  rice:    {sid:"s_rice",     mult:1,   u:"袋",     n:"米", proc:false}
+};
+function fcAddDays(d,n){var t=new Date(d+"T00:00:00");t.setDate(t.getDate()+n);return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");}
+function fcDaysInMonth(ym){var y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7));return new Date(y,m,0).getDate();}
+// from〜to（to含まず）の期間の需要を、月データを日割りして合計（注文書の単位）
+function fcWindowDemand(from,to){
+  var out={};var d=from;var guard=0;
+  while(d<to&&guard<400){guard++;var ym=d.slice(0,7);var md=histMonthData(ym,"all");var dim=fcDaysInMonth(ym);
+    // この月のうち期間に入る日数
+    var mEnd=ym+"-"+String(dim).padStart(2,"0");var segEnd=(fcAddDays(mEnd,1)<to)?fcAddDays(mEnd,1):to;
+    var days=Math.round((new Date(segEnd+"T00:00:00")-new Date(d+"T00:00:00"))/86400000);
+    var has=false;for(var k in md){if(md[k]>0)has=true;}
+    if(has){for(var k in md)out[k]=(out[k]||0)+md[k]/dim*days;}else{out._missing=(out._missing||0)+days;}
+    d=segEnd;}
+  return out;
+}
+// 今年の伸び率（直近3か月の合計 ÷ 去年の同じ3か月。0.5〜2.0に収める）
+function fcGrowth(d){
+  var cur=0,prev=0;var ym=d.slice(0,7);
+  for(var i=1;i<=3;i++){var y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7))-i;while(m<=0){m+=12;y--;}var a=y+"-"+String(m).padStart(2,"0");var b=(y-1)+"-"+String(m).padStart(2,"0");
+    var ma=histMonthData(a,"all"),mb=histMonthData(b,"all");for(var k in FC_MAP){cur+=(ma[k]||0)*(FC_MAP[k].mult||1);prev+=(mb[k]||0)*(FC_MAP[k].mult||1);}}
+  if(!prev||!cur)return 1;var g=cur/prev;return Math.min(2,Math.max(0.5,g));
+}
+function buildForecast(d,days){
+  d=d||today();days=days||14;
+  if(!HIST||!HIST.data)return null;
+  var lastYearFrom=(parseInt(d.slice(0,4))-1)+d.slice(4);var lastYearTo=fcAddDays(lastYearFrom,days);
+  var dem=fcWindowDemand(lastYearFrom,lastYearTo);
+  var basis="去年の同じ時期（"+lastYearFrom.slice(5).replace("-","/")+"〜"+fcAddDays(lastYearTo,-1).slice(5).replace("-","/")+"）";
+  if(dem._missing&&dem._missing>=days){ // 去年のデータが無ければ直近8週間の平均
+    var recentFrom=fcAddDays(d,-56);dem=fcWindowDemand(recentFrom,d);for(var k in dem){if(k!=="_missing")dem[k]=dem[k]/56*days;}basis="直近8週間の平均";}
+  var g=fcGrowth(d);
+  var rows=[];
+  for(var pid in FC_MAP){var f=FC_MAP[pid];var st=getStock(f.sid);if(!st||st._hidden)continue;var q=(dem[pid]||0)*g;if(!q)continue;
+    var need=q*f.mult;var minS=st.minStock||0;var target=need+minS;var short=Math.max(0,target-st.stock);
+    rows.push({pid:pid,n:f.n,u:f.u,proc:f.proc,orders:Math.round(q*10)/10,ou:(HIST.items.filter(function(x){return x.k===pid;})[0]||{}).u||"",need:Math.round(need),stock:st.stock,min:minS,short:Math.ceil(short),ok:short<=0});}
+  rows.sort(function(a,b){return (b.short/Math.max(1,b.need))-(a.short/Math.max(1,a.need));});
+  return {days:days,basis:basis,growth:Math.round(g*100)/100,rows:rows,from:d,to:fcAddDays(d,days-1)};
+}
+function fcLines(F){
+  var L=[];if(!F)return L;
+  L.push("■ これから"+F.days+"日の見込み（"+F.basis+"の発注量 × 今年の伸び "+Math.round(F.growth*100)+"%。目安です）");
+  var any=false;
+  for(var i=0;i<F.rows.length;i++){var r=F.rows[i];if(!r.proc)continue;any=true;
+    L.push("・"+r.n+"：出る見込み 約"+r.need.toLocaleString("ja-JP")+r.u+"／在庫 "+r.stock.toLocaleString("ja-JP")+r.u+(r.short>0?" → 仕込み目安 あと"+r.short.toLocaleString("ja-JP")+r.u+(r.min?"（発注点"+r.min.toLocaleString("ja-JP")+r.u+"分を含む）":""):" → 足りています"));}
+  var raw=[];for(var i=0;i<F.rows.length;i++){var r=F.rows[i];if(r.proc||r.short<=0)continue;raw.push(r.n+" あと"+r.short.toLocaleString("ja-JP")+r.u);}
+  if(raw.length)L.push("・仕入れが要りそう："+raw.join("、"));
+  if(!any)L.push("・見込みを出せる加工品がありません");
+  return L;
+}
+function rForecast(d){
+  if(!HIST){loadHistory();return '<div class="card"><div style="font-weight:600">📈 これからの見込みと仕込み目安</div><div style="font-size:12px;color:#6b7280">過去データを読み込み中…</div></div>';}
+  var F=buildForecast(d,14);if(!F||!F.rows.length)return '';
+  var h='<div class="card" style="border-left:4px solid #0ea5e9"><div style="font-weight:700;margin-bottom:2px">📈 これから14日の見込みと仕込み目安（'+F.from.slice(5).replace("-","/")+'〜'+F.to.slice(5).replace("-","/")+'）</div>';
+  h+='<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+F.basis+'の発注量 × 今年の伸び '+Math.round(F.growth*100)+'%。在庫と発注点を引いた残りが「仕込み目安」です（あくまで目安。棚卸し後の在庫で見直してください）</div>';
+  h+='<div class="tw"><table style="min-width:340px"><thead><tr><th style="text-align:left">品目</th><th>出る見込み</th><th>在庫</th><th>仕込み・仕入れ目安</th></tr></thead><tbody>';
+  for(var i=0;i<F.rows.length;i++){var r=F.rows[i];
+    h+='<tr><td style="font-weight:600">'+r.n+(r.proc?'':' <span style="font-size:10px;color:#6b7280">仕入れ</span>')+'</td><td style="text-align:right">約'+r.need.toLocaleString("ja-JP")+r.u+'<div style="font-size:10px;color:#9ca3af">発注 '+r.orders+(r.ou||"")+'</div></td><td style="text-align:right">'+r.stock.toLocaleString("ja-JP")+r.u+(r.min?'<div style="font-size:10px;color:#9ca3af">発注点 '+r.min+'</div>':'')+'</td><td style="text-align:right;font-weight:700;color:'+(r.short>0?'#b45309':'#16a34a')+'">'+(r.short>0?'あと '+r.short.toLocaleString("ja-JP")+r.u:'足りています')+'</td></tr>';}
+  h+='</tbody></table></div></div>';return h;
+}
 function histMonths(){var ms=[];var y=2024,m=12;var end=thisMonth();while(true){var ym=y+"-"+String(m).padStart(2,"0");ms.push(ym);if(ym>=end)break;m++;if(m>12){m=1;y++;}}return ms;}
 function fmtQ(v){if(v===undefined||v===null)return "－";return (Math.round(v*10)/10).toLocaleString("ja-JP");}
 function rHistory(){
@@ -1872,6 +1943,7 @@ function rPlan(){
   h+='<button onclick="doPrint(\'plan-print\')" class="no-print" style="margin-left:auto;padding:7px 12px;font-size:12px">🖨 印刷</button><button onclick="A.showLineTxt=!A.showLineTxt;re()" class="no-print" style="padding:7px 12px;font-size:12px">💬 LINE文面</button></div>';
   if(A.showLineTxt){h+='<div class="card no-print" style="margin-bottom:10px"><div style="font-size:12px;color:#6b7280;margin-bottom:6px">毎朝LINEに送られる文面（プレビュー）</div><textarea readonly rows="14" style="width:100%;font-size:12px;padding:8px;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:8px">'+esc(dailyMessageText(d))+'</textarea></div>';}
   h+='<div id="plan-print">';
+  h+=rForecast(d);
   h+='<div style="font-size:12px;color:#6b7280;margin-bottom:8px">出勤（'+P.src+'）：'+(P.people.length?P.people.join('・'):'なし')+'　<button onclick="sTab(\'sched\')" class="no-print" style="padding:2px 8px;font-size:11px">出勤表を編集</button></div>';
   if(!P.people.length)h+='<div class="card" style="text-align:center;color:#6b7280;padding:24px">この日の出勤者がいません。出勤表で○を付けてください。</div>';
   for(var i=0;i<P.people.length;i++){
@@ -2005,6 +2077,8 @@ function dailyMessageText(d){
     else L.push("・在庫が発注点を下回っている加工品はありません");
     var ex=[];for(var j=0;j<P.extra.length;j++){if(!P.extra[j].done)ex.push(P.extra[j]);}
     if(ex.length){L.push("");L.push("■ 追加の指示");for(var j=0;j<ex.length;j++)L.push("・"+(ex[j].who?ex[j].who+"：":"")+ex[j].text);}
+    // --- これから14日の見込み（過去の注文書データ×今年の伸び）
+    var FL=fcLines(buildForecast(d,14));if(FL.length){L.push("");for(var j=0;j<FL.length;j++)L.push(FL[j]);}
   }
   // --- 在庫アラート
   var al=getStockAlerts();
