@@ -582,7 +582,7 @@ function re(){
   h+='<span style="color:#9ca3af">›</span>';
   var cur=null;for(var i=0;i<tabs.length;i++){if(tabs[i].id===A.tab){cur=tabs[i];break;}}
   if(cur)h+='<span style="color:#374151;font-weight:600">'+cur.ic+' '+cur.lb+'</span>';
-  if(A.tab!==tabs[0].id)h+='<span style="margin-left:auto;flex-shrink:0"><button onclick="goBack()" style="background:none;border:1px solid #d1d5db;color:#374151;padding:3px 10px;font-size:11px;cursor:pointer;border-radius:4px">← 戻る</button></span>';
+  if(A.tab!==tabs[0].id)h+='<span style="margin-left:auto;flex-shrink:0"><button onclick="goBack()" style="background:#fff;border:1px solid #9ca3af;color:#111827;padding:7px 14px;font-size:14px;font-weight:600;cursor:pointer;border-radius:8px">← 戻る</button></span>';
   h+='</div>';
   // 在庫アラートバナー（発注点以下の食材があれば常時表示）
   if(A.user.r==="admin"){
@@ -621,8 +621,11 @@ function getTabs(){
   var out=[];for(var i=0;i<all.length;i++){if(all[i].r.indexOf(A.user.r)>=0)out.push(all[i]);}
   return out;
 }
-function sTab(t){if(t==="check"||t==="history"||t==="workorder")loadOrders(function(){re();});if(t==="sched")loadSched(function(){re();});if(t==="plan")loadSched(function(){loadTasks(function(){re();});});if(A.user&&A.tab&&A.tab!==t)TAB_HIST.push(A.tab);A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud().then(function(){loadStockFromCloud(function(){re();});});}}
-function goBack(){if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}}
+function sTab(t){if(t==="check"||t==="history"||t==="workorder")loadOrders(function(){re();});if(t==="sched")loadSched(function(){re();});if(t==="plan")loadSched(function(){loadTasks(function(){re();});});if(A.user&&A.tab&&A.tab!==t){TAB_HIST.push(A.tab);try{history.pushState({tab:t},"");}catch(e){}}A.tab=t;re();if(t==="stock"){clearTimeout(_stSaveT);saveStockToCloud().then(function(){loadStockFromCloud(function(){re();});});}}
+function goBack(){if(A.modal){cm();return;}var o=document.getElementById("print-overlay");if(o){closePrintOverlay();return;}if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}}
+// ブラウザ／スマホの「戻る」でアプリ内の前の画面に戻る（アプリから抜けない）
+window.addEventListener("popstate",function(){if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}});
+try{history.replaceState({tab:"root"},"");}catch(e){}
 function rPage(){
   // ログイン中の権限で開けないタブは最初のタブに戻す（共有端末で管理者タブが残るのを防ぐ）
   if(A.user){var tabs=getTabs();var okTab=false;for(var i=0;i<tabs.length;i++){if(tabs[i].id===A.tab)okTab=true;}if(!okTab&&tabs.length){A.tab=tabs[0].id;TAB_HIST=[];}}
@@ -689,7 +692,7 @@ function rOrder(){
   if(OF.done){
     var h='<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🎉</div>';
     h+='<div style="font-size:20px;font-weight:700;color:#16a34a;margin-bottom:8px">発注完了しました！</div>';
-    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span>'+( OF.tanto?'<br><span style="font-size:12px">担当者：'+OF.tanto+'</span>':"")+"</div>";
+    h+='<div style="color:#6b7280;margin-bottom:20px">'+OF.s+' の発注を受け付けました<br><span style="font-size:12px">在庫を自動で更新しました</span>'+(OF.replaced?'<br><span style="font-size:12px;color:#b45309">※本日すでに送られていた発注（'+OF.replaced+'件）は、この内容に置き換えました</span>':'')+''+( OF.tanto?'<br><span style="font-size:12px">担当者：'+OF.tanto+'</span>':"")+"</div>";
     // 在庫アラート表示
     var alerts=OF.stockAlerts||[];
     if(alerts.length>0){
@@ -764,12 +767,16 @@ function submitOrder(){
   if(!hasItem)return alert("1品以上入力してください");
   var newOrder={id:Date.now(),s:OF.s,d:today(),it:it,bx:{},st:"pending",sl:[],tanto:(OF.tanto||"").trim()};
   OR.unshift(newOrder);
-  OF.done=true;OF.stockAlerts=[];
+  OF.done=true;OF.stockAlerts=[];OF.replaced=0;
   re();
   saveOrder(newOrder,function(ok){
   if(!ok){for(var i=0;i<OR.length;i++){if(OR[i].id===newOrder.id){OR.splice(i,1);break;}}OF.done=false;re();return;}
+  // 同じ店舗・同じ日に未出荷の発注が既にあれば、1回目を消して今回の内容に置き換える（二重発注対策・2026-11-09朝ミーティング）
+  replaceSameDayOrders(newOrder,function(oldOrders){
+  OF.replaced=oldOrders.length;
   // 在庫を自動減算（保存できてから。クラウドの最新在庫を読んでから減らす。管理者のみアラートを渡す）
   withFreshStock(function(){
+  for(var r=0;r<oldOrders.length;r++)restoreStockByOrder(oldOrders[r].it||{});
   var stockAlerts=deductStockByOrder(it);
   OF.stockAlerts=(A.user.r==="admin"?stockAlerts:[]);
   // 在庫ゼロの食材はLINEに通知（店舗の発注でも送る）
@@ -784,6 +791,26 @@ function submitOrder(){
   }
    });
   });
+  });
+}
+// 同じ店舗・同じ日の未出荷発注（今回より前のもの）をクラウドから探して削除する。削除できたものだけ返す
+function replaceSameDayOrders(newOrder,callback){
+  var path="orders?select=id,items,store,date,status&store=eq."+encodeURIComponent(newOrder.s)+"&date=eq."+newOrder.d+"&status=eq.pending&id=lt."+newOrder.id;
+  supaFetch("GET",path).then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    if(!Array.isArray(rows)||rows.length===0){callback([]);return;}
+    var done=0,removed=[];
+    rows.forEach(function(row){
+      deleteOrder(row.id,function(ok){
+        if(ok){removed.push({id:row.id,it:row.items||{}});for(var i=0;i<OR.length;i++){if(OR[i].id===row.id){OR.splice(i,1);break;}}}
+        done++;if(done===rows.length){re();callback(removed);}
+      });
+    });
+  }).catch(function(){callback([]);});
+}
+// 発注分の在庫を戻す（削除・置き換え時）
+function restoreStockByOrder(it){
+  var ks=Object.keys(it);
+  for(var i=0;i<ks.length;i++){var map=STOCK_MAP[ks[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st||st.noStock||st._hidden)continue;var use=map[j].qty*it[ks[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
 }
 // ============================================================
 // 発注履歴
@@ -1761,7 +1788,9 @@ function buildPlan(d){
   // ※在庫は発注時にすでに減算済みなので、未出荷分を二重に引かない（発注点を下回った分だけ）
   var dp=getStock("s_daikon_p");if(dp){var need=0;var low=dp.minStock>0&&dp.stock<=dp.minStock;if(need>0||low){procs.push({pri:0,ratio:dp.minStock?dp.stock/dp.minStock:0,txt:"大根おろし "+Math.max(need,low?planCeil(dp.minStock-dp.stock):0)+"パック（現在庫 "+dp.stock+"パック"+(need>0?"・未出荷分で"+need+"パック不足":"")+"）"});}}
   var ps=getStock("proc_shrimp");if(ps){var needS=0;var lowS=ps.minStock>0&&ps.stock<=ps.minStock;if(needS>0||lowS){var tail=Math.max(needS,lowS?planCeil(ps.minStock-ps.stock):0);var cases=planCeil(tail/600);procs.push({pri:1,ratio:ps.minStock?ps.stock/ps.minStock:0,txt:"むきエビ加工 "+cases+"ケース（約"+(cases*600)+"尾・現在庫 "+ps.stock+"尾）"});}}
-  var pc=getStock("proc_cheese");if(pc&&pc.minStock>0&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）"});}
+  var pc=getStock("proc_cheese");if(pc&&pc.minStock>0&&pc.stock<=pc.minStock){procs.push({pri:2,ratio:pc.minStock?pc.stock/pc.minStock:0,txt:"燻製チーズ加工 "+planCeil(pc.minStock-pc.stock)+"個（現在庫 "+pc.stock+"個）※燻製したら在庫タブで「加工登録」を忘れずに"});}
+  // 燻製チーズ：原材料があるのに加工済みが少ない＝燻製したのに加工登録を入れ忘れている可能性
+  var rc=getStock("raw_cheese");if(pc&&rc&&rc.stock>0&&pc.stock<=0){procs.push({pri:2,ratio:0,txt:"【確認】燻製チーズの加工済み在庫が0です。燻製済みの分があれば在庫タブで「加工登録」を入れてください（原材料 "+rc.stock+"個）"});}
   // 牛すじ煮込み：他の惣菜と同じく在庫（加工済パック）が発注点を下回ったら
   var pg=getStock("proc_gyu");if(pg){var needG=0;var lowG=pg.minStock>0&&pg.stock<=pg.minStock;if(needG>0||lowG){var cfgP=getStock("cfg_gyu_packs");var per=(cfgP&&cfgP.stock>0)?cfgP.stock:8;var packs=Math.max(needG,lowG?planCeil(pg.minStock-pg.stock):0);var batches=Math.max(1,planCeil(packs/per));procs.push({pri:2,ratio:pg.minStock?pg.stock/pg.minStock:0,txt:"牛すじ煮込み 10kg×"+batches+"回仕込み（約"+(batches*per)+"パック・現在庫 "+pg.stock+"パック"+(needG>0?"・未出荷分で"+needG+"パック不足":"")+"）"});}}
   procs.sort(function(a,b){return a.pri-b.pri||a.ratio-b.ratio;});
@@ -2282,8 +2311,7 @@ function adminDeleteOrder(oid){
   deleteOrder(oid,null);re();
   // 在庫を戻す（クラウドの最新値を読んでから）
   withFreshStock(function(){
-  var it=o.it||{};var ks=Object.keys(it);
-  for(var i=0;i<ks.length;i++){var map=STOCK_MAP[ks[i]];if(!map)continue;for(var j=0;j<map.length;j++){var st=getStock(map[j].sid);if(!st||st.noStock||st._hidden)continue;var use=map[j].qty*it[ks[i]];if(map[j].batch){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;use=use/per;}st.stock=Math.round((st.stock+use)*100)/100;}}
+  restoreStockByOrder(o.it||{});
   });
 }
 function closePrintOverlay(){
@@ -2301,7 +2329,8 @@ function closePrintOverlay(){
   document.addEventListener("touchend",function(e){
     var dx=e.changedTouches[0].clientX-startX;
     var dy=e.changedTouches[0].clientY-startY;
-    if(dx>80&&Math.abs(dx)>Math.abs(dy)*2){
+    // 画面の左端（40px以内）から右へ100px以上スワイプしたときだけ戻る（スクロール中の誤反応を防ぐ）
+    if(startX<=40&&dx>100&&Math.abs(dx)>Math.abs(dy)*2){
       var overlay=document.getElementById("print-overlay");
       if(overlay){closePrintOverlay();return;}
       if(TAB_HIST.length>0){A.tab=TAB_HIST.pop();re();}
