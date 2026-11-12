@@ -1712,13 +1712,28 @@ function procGyu(){
     alert("✅ 加工完了！\n10kg仕込み "+n+"回 → 牛すじ煮込み "+packs+"パック\n\n牛すじ残: "+(raw?raw.stock:"-")+"kg\nパック残: "+proc.stock+"パック");
   });
 }
+// 加工品 id を q だけ作った（増やした）ときに減る原材料・真空パック。減らした明細を返す（対象外なら空）
+function deductRawForProcessed(id,q){
+  var used=[];function dec(sid,amt,label){var st=getStock(sid);if(!st||!amt)return;st.stock=Math.max(0,Math.round((st.stock-amt)*100)/100);used.push({mat:label||st.n,qty:Math.round(amt*100)/100,u:st.u,prod:"加工作業",remain:st.stock,sid:st.id});}
+  if(id==="proc_gyu"){var cfg=getStock("cfg_gyu_packs");var per=(cfg&&cfg.stock>0)?cfg.stock:8;for(var i=0;i<GYU_BATCH.length;i++)dec(GYU_BATCH[i].sid,GYU_BATCH[i].qty*q/per);dec("s_vacpack",q,"真空パック（袋）");}
+  else if(id==="s_daikon_p"){dec("s_daikon",q,"大根（原材料）");dec("s_vacpack",q,"真空パック（袋）");}
+  else if(id==="proc_shrimp"){dec("raw_shrimp",q/600,"冷凍エビ（原材料）");}
+  else if(id==="proc_cheese"){dec("raw_cheese",q,"チーズ（原材料）");}
+  return used;
+}
 function recvSt(id,prefix){
   var pfx=prefix||"rcv_";
   var el=document.getElementById(pfx+id)||document.getElementById("rcv_"+id);
   var q=parseFloat(el?el.value:0)||0;
   if(!q)return alert("入庫数を入力してください");
   if(el)el.value="";
-  withFreshStock(function(){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){var st=STOCK[i];var addv=st.pack?q*st.pack:q;st.stock=Math.round((st.stock+addv)*100)/100;alert("✅ 入庫完了\n"+st.n+" "+q+(st.pack?"本":st.u)+"\n現在庫: "+stockDisp(st));break;}}});
+  withFreshStock(function(){for(var i=0;i<STOCK.length;i++){if(STOCK[i].id===id){var st=STOCK[i];var addv=st.pack?q*st.pack:q;st.stock=Math.round((st.stock+addv)*100)/100;
+    // 加工品を「入庫」した時も、その分の原材料・真空パックを減らす（加工登録と同じ扱い。2026-11-12）
+    var used=deductRawForProcessed(id,addv);
+    SLOG.unshift({oid:used.length?"proc":"recv",st:used.length?"加工作業":"入庫",d:today(),ts:new Date().toLocaleString("ja-JP"),items:used.concat([{mat:st.n,qty:-addv,u:st.u,prod:used.length?"加工完了":"入庫",remain:st.stock,sid:st.id}])});
+    var msg="✅ 入庫完了\n"+st.n+" "+q+(st.pack?"本":st.u)+"\n現在庫: "+stockDisp(st);
+    if(used.length){msg+="\n\n原材料も減らしました：";for(var u=0;u<used.length;u++)msg+="\n・"+used[u].mat+" -"+used[u].qty+used[u].u+"（残 "+used[u].remain+used[u].u+"）";}
+    alert(msg);break;}}});
 }
 
 // ============================================================
